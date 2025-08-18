@@ -1,0 +1,81 @@
+/*
+ * Style professionnel pour les formulaires dans les modales
+ * Fichier : css/forms.css
+ */
+
+:root {
+    --primary-color: #0066cc;
+    --border-color: #dee2e6;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --surface-color: #ffffff;
+    --light-color: #f8f9fa;
+}
+
+.modal-content .form-group {
+    margin-bottom: 1.25rem;
+}
+
+.modal-content .form-group label {
+    display: block;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.modal-content .form-group input[type="text"],
+.modal-content .form-group input[type="date"],
+.modal-content .form-group select,
+.modal-content .form-group textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 1rem;
+    color: var(--text-primary);
+    background-color: var(--surface-color);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.modal-content .form-group input:focus,
+.modal-content .form-group select:focus,
+.modal-content .form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.2);
+}
+
+.modal-content .form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* Style pour l'input de fichier */
+.modal-content .form-group input[type="file"] {
+    border: 1px dashed var(--border-color);
+    padding: 1rem;
+    background-color: var(--light-color);
+    cursor: pointer;
+}
+
+.modal-content .form-group input[type="file"]::file-selector-button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-right: 1rem;
+    transition: background-color 0.2s;
+}
+
+.modal-content .form-group input[type="file"]::file-selector-button:hover {
+    background-color: var(--primary-dark);
+}
+
+#fichierActuel {
+    font-style: italic;
+    color: var(--primary-color);
+    font-weight: bold;
+}

@@ -1,0 +1,120 @@
+/* --- Styles pour la Gestion des Thèmes (Encadreur) --- */
+
+.themes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+.theme-card {
+    background: var(--surface-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    border-left: 5px solid var(--primary-color);
+}
+
+.theme-card-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.theme-card-header h3 {
+    margin: 0 0 5px 0;
+    color: var(--text-primary);
+}
+.theme-filiere {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+.theme-card-body {
+    padding: 1.5rem;
+    flex-grow: 1;
+    color: var(--text-secondary);
+}
+.theme-dates {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--border-color);
+    color: var(--text-primary);
+}
+
+.theme-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: var(--light-color);
+    border-top: 1px solid var(--border-color);
+}
+.theme-status .status-badge {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+}
+.theme-status .status-attribue { background-color: var(--success-color); }
+.theme-status .status-disponible { background-color: var(--info-color); }
+
+.form-group-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+/* --- Styles pour l'affichage du thème (Stagiaire) --- */
+
+.theme-stagiaire-card {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+.theme-stagiaire-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+}
+
+.theme-stagiaire-icon {
+    font-size: 3rem;
+    opacity: 0.7;
+}
+
+.theme-stagiaire-info h4 {
+    margin: 0;
+    font-weight: 400;
+    font-size: 1rem;
+    opacity: 0.9;
+}
+.theme-stagiaire-info h2 {
+    margin: 5px 0;
+    font-size: 1.8rem;
+}
+.theme-stagiaire-info p {
+    margin: 0;
+    opacity: 0.9;
+}
+
+.theme-stagiaire-action {
+    margin-left: auto;
+    font-weight: 500;
+}
+
+/* Modal Voir Thème */
+#modalVoirTheme .modal-content { max-width: 700px; }
+#modalVoirTheme h4 { font-size: 1.5rem; color: var(--primary-dark); margin-bottom: 1rem; }
+.theme-details-filiere { font-size: 1.1rem; margin-bottom: 1rem; }
+.theme-details-description { line-height: 1.6; margin: 1rem 0; }
+.theme-details-dates { display: flex; justify-content: space-between; margin-top: 1rem; font-size: 0.9rem; }

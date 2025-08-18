@@ -1,0 +1,253 @@
+/* ===================================================================
+==        STYLES DESIGN POUR LE MODULE DE PRÉSENCE (LISTE)         ==
+=================================================================== */
+
+:root {
+    --primary-color: #0066cc;
+    --primary-light: #e6f0fa;
+    --accent-color: #dc3545;
+    --accent-light: #fde8e9;
+    --success-color: #28a745;
+    --success-light: #e9f7ef;
+    --warning-color: #ffc107;
+    --warning-light: #fff8e1;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --surface-color: #ffffff;
+    --background-color: #f4f7fc; /* Un gris-bleu très clair */
+    --border-color: #dee2e6;
+    --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-strong: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.presence-content-liste {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* --- La boîte de pointage reste similaire mais affinée --- */
+.pointage-box {
+    background-color: var(--surface-color);
+    padding: 1.5rem 2rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow-soft);
+}
+
+/* --- Vue de la semaine (refonte majeure) --- */
+.semaine-view {
+    background-color: var(--surface-color);
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow-soft);
+}
+
+.semaine-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+.semaine-header h2 {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.semaine-header .btn-nav {
+    background: var(--background-color);
+    color: var(--text-secondary);
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    transition: all 0.2s ease-in-out;
+}
+.semaine-header .btn-nav:hover {
+    background: var(--primary-color);
+    color: #fff;
+    transform: scale(1.1);
+}
+
+.semaine-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.5rem;
+}
+
+.jour-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.jour-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-strong);
+}
+
+.jour-header {
+    padding: 1rem;
+    border-bottom: 1px solid #e9ecef;
+}
+.jour-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+.jour-header span {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.jour-body {
+    padding: 1.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-grow: 1;
+}
+
+.jour-status-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.jour-status-text {
+    font-size: 1rem;
+    font-weight: 500;
+    text-transform: capitalize;
+    margin-bottom: 1.5rem;
+}
+
+.jour-details {
+    margin-top: auto;
+    width: 100%;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--border-color);
+}
+.detail-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+.detail-item span {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* --- Couleurs et Thèmes des Statuts --- */
+.jour-card.status-present { border-color: var(--success-color); }
+.jour-card.status-present .jour-status-icon { color: var(--success-color); }
+.jour-card.status-present .jour-status-text { color: var(--success-color); }
+
+.jour-card.status-retard { border-color: var(--warning-color); }
+.jour-card.status-retard .jour-status-icon { color: var(--warning-color); }
+.jour-card.status-retard .jour-status-text { color: var(--warning-color); }
+
+.jour-card.status-absent { border-color: var(--accent-color); }
+.jour-card.status-absent .jour-status-icon { color: var(--accent-color); }
+.jour-card.status-absent .jour-status-text { color: var(--accent-color); }
+
+.jour-card.status-futur,
+.jour-card.status-hors_stage {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+}
+.jour-card.status-futur .jour-status-icon,
+.jour-card.status-hors_stage .jour-status-icon {
+    color: #ced4da;
+}
+
+.btn-semaine-actuelle {
+    display: block;
+    width: fit-content;
+    margin: 2rem auto 0;
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+    font-weight: 600;
+}
+.btn-semaine-actuelle:hover {
+    background-color: var(--primary-color);
+    color: #fff;
+}
+
+/* --- Responsive pour les tablettes et mobiles --- */
+@media (max-width: 1200px) {
+    .semaine-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .semaine-grid {
+        grid-template-columns: 1fr 1fr; /* 2 colonnes sur mobile */
+    }
+    .semaine-header h2 {
+        font-size: 1.2rem;
+    }
+}
+
+@media (max-width: 500px) {
+    .semaine-grid {
+        grid-template-columns: 1fr; /* 1 colonne sur très petit écran */
+    }
+}
+/* ===================================================================
+==               STYLES SPÉCIFIQUES POUR L'ENCADREUR               ==
+=================================================================== */
+
+.stagiaire-select-form {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.semaine-header .filter-select {
+    padding: 0.75rem 1.25rem;
+    font-size: 1rem;
+    font-weight: 500;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--background-color);
+    min-width: 300px;
+    cursor: pointer;
+}
+
+.semaine-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.semaine-navigation h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: var(--text-secondary);
+}
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}

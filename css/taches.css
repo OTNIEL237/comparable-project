@@ -1,0 +1,168 @@
+/*
+ * Fichier de style pour la section Tâches
+ * À inclure dans vos pages de dashboard
+ * Fichier : css/taches.css
+ */
+:root {
+    --primary-color: #0066cc;
+    --primary-dark: #0052a3;
+    --accent-color: #dc3545;
+    --accent-dark: #bd2130;
+    --success-color: #28a745;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --background-color: #f8f9fa;
+    --surface-color: #ffffff;
+    --border-color: #dee2e6;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+.taches-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Grille des tâches */
+.taches-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.tache-card {
+    background-color: var(--surface-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-left: 5px solid var(--primary-color);
+}
+.tache-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+}
+
+.tache-card-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tache-card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tache-card-body {
+    padding: 1.5rem;
+    flex-grow: 1;
+}
+
+.tache-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.info-line {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+.info-line i {
+    color: var(--primary-color);
+    width: 20px;
+    text-align: center;
+}
+.info-line span {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+.info-line a {
+    color: var(--primary-dark);
+    text-decoration: none;
+    font-weight: 500;
+}
+.info-line a:hover {
+    text-decoration: underline;
+}
+
+.tache-card-footer {
+    padding: 1rem 1.5rem;
+    background-color: var(--light-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--border-color);
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.tache-actions .btn {
+    margin-left: 0.5rem;
+}
+
+/* Statuts des tâches */
+.status-badge {
+    padding: 0.25rem 0.6rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #fff;
+    text-transform: capitalize;
+}
+
+.status-en_attente { background-color: var(--info-color); }
+.status-terminee { background-color: var(--success-color); }
+.status-en_retard { background-color: var(--accent-color); }
+
+.tache-card.status-card-terminee { border-left-color: var(--success-color); }
+.tache-card.status-card-en_retard { border-left-color: var(--accent-color); }
+
+/* Calendrier (Vue simple par liste) */
+.taches-calendar-view {
+    background: var(--surface-color);
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+}
+.calendar-day {
+    margin-bottom: 2rem;
+}
+.calendar-day-header {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--primary-dark);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--primary-color);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .taches-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Modal pour les tâches */
+#modalNouvelleTache .modal-content,
+#modalModifierTache .modal-content {
+    max-width: 600px;
+}
+
+/*#modalModifierTache form {
+    /* Style pour le formulaire de modification si besoin */
+/*}

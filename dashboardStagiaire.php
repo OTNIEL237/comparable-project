@@ -1,8 +1,6 @@
 <?php
 /**
- * Dashboard principal pour les stagiaires - Système de Gestion des Stagiaires
- * Fonctionnalités : Dashboard, Messagerie (complète), Rapports (complets), Tâches, Présences, Profil
- * Couleurs : Bleu (#0066cc), Blanc (#ffffff), Rouge (#dc3545)
+ * Dashboard principal pour les stagiaires
  */
 date_default_timezone_set('Africa/Douala');
 
@@ -26,7 +24,7 @@ $conn = Database::getConnection();
 $user_id = $_SESSION['user_id'];
 $nom_complet = $_SESSION['prenom'] . ' ' . $_SESSION['nom'];
 
-// Initialisation des classes pour la messagerie et les rapports
+// Initialisation des classes 
 $message = new Message($user_id);
 $rapport = new Rapport($user_id);
 $tache = new Tache();
@@ -93,6 +91,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             echo json_encode(['success' => $resultat]);
             exit();
 
+          case 'get_tache_details':
+            if (isset($_POST['tache_id'])) {
+                $tache_id = (int)$_POST['tache_id'];
+                // La classe Tache est déjà instanciée au début du fichier
+                $tache_details = $tache->getTacheById($tache_id);
+                
+                // Sécurité : Vérifier que la tâche appartient bien au stagiaire connecté
+                if ($tache_details && $tache_details['stagiaire_id'] == $user_id) {
+                    echo json_encode(['success' => true, 'data' => $tache_details]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Tâche non trouvée ou accès refusé.']);
+                }
+            } else {
+                echo json_encode(['success' => false, 'message' => 'ID de tâche manquant.']);
+            }
+            exit();
+
 
         case 'marquer_presence':
             $presence = new Presence();
@@ -111,9 +126,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             echo json_encode($events);
             exit();
 
+        case 'get_rapport_details':
+            if (isset($_POST['rapport_id'])) {
+                $rapport_id = (int)$_POST['rapport_id'];
+                // Le rôle est 'stagiaire' sur cette page
+                $rapport_details = Rapport::getRapportById($rapport_id, $user_id, 'stagiaire');
+                
+                if ($rapport_details) {
+                    echo json_encode(['success' => true, 'data' => $rapport_details]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Rapport non trouvé ou accès refusé.']);
+                }
+            } else {
+                echo json_encode(['success' => false, 'message' => 'ID de rapport manquant.']);
+            }
+            exit();
 
-    }
+        }
+        
 }
+
 
 // Gestion des onglets et filtres
 $onglet_actif = isset($_GET['tab']) ? $_GET['tab'] : 'dashboard';
@@ -135,7 +167,8 @@ switch ($onglet_actif) {
         break;
 
     case 'taches':
-        $taches = $tache->getTachesPourStagiaire($user_id, $filtre);
+        // On passe maintenant le terme de recherche à la méthode
+        $taches = $tache->getTachesPourStagiaire($user_id, $filtre, $recherche);
         break;
 
     case 'presences':
@@ -443,9 +476,8 @@ switch ($onglet_actif) {
                                     </div>
                                     <div class="rapport-actions">
                                         <!-- Actions sur les rapports -->
-                                        <button class="btn btn-sm" onclick="voirRapport(<?php echo $rpt['id']; ?>)">
-                                            <i class="fas fa-eye"></i>
-                                            Voir
+                                       <button class="btn btn-sm" onclick="voirRapport(<?php echo $rpt['id']; ?>)">
+                                            <i class="fas fa-eye"></i> Voir
                                         </button>
                                         <button class="btn btn-sm" onclick="telechargerRapport(<?php echo $rpt['id']; ?>)">
                                             <i class="fas fa-download"></i>
@@ -571,78 +603,85 @@ switch ($onglet_actif) {
     <?php elseif ($onglet_actif === 'taches'): ?>
 <div class="taches-content">
     <div class="toolbar">
-        <div class="toolbar-left">
-            <h2>Mes Tâches</h2>
-        </div>
-        <div class="toolbar-right">
-            <select class="filter-select" onchange="filtrerTaches(this.value)">
-                <option value="toutes" <?php echo $filtre === 'toutes' ? 'selected' : ''; ?>>Toutes les tâches</option>
-                <option value="en_cours" <?php echo $filtre === 'en_cours' ? 'selected' : ''; ?>>En cours</option>
-                <option value="en_retard" <?php echo $filtre === 'en_retard' ? 'selected' : ''; ?>>En retard</option>
-                <option value="terminees" <?php echo $filtre === 'terminees' ? 'selected' : ''; ?>>Terminées</option>
-            </select>
+    <div class="toolbar-left">
+        <h2>Mes Tâches</h2>
+    </div>
+    <div class="toolbar-right">
+        <select class="filter-select" onchange="filtrerTaches(this.value)">
+            <option value="toutes" <?php echo $filtre === 'toutes' ? 'selected' : ''; ?>>Toutes les tâches</option>
+            <option value="en_cours" <?php echo $filtre === 'en_cours' ? 'selected' : ''; ?>>En cours</option>
+            <option value="en_retard" <?php echo $filtre === 'en_retard' ? 'selected' : ''; ?>>En retard</option>
+            <option value="terminees" <?php echo $filtre === 'terminees' ? 'selected' : ''; ?>>Terminées</option>
+        </select>
+        <!-- NOUVELLE BARRE DE RECHERCHE -->
+        <div class="search-box">
+            <input type="text" placeholder="Rechercher une tâche..." value="<?php echo htmlspecialchars($recherche); ?>" onkeyup="rechercherTaches(this.value)">
+            <i class="fas fa-search"></i>
         </div>
     </div>
+</div>
+    
+        
 
     <div class="taches-grid">
         <?php if (isset($taches) && $taches->num_rows > 0): ?>
             <?php while ($t = $taches->fetch_assoc()): ?>
-                <?php
-                    // Calcul du statut et des jours restants
-                    $statut_reel = $t['statut'];
-                    $jours_restants = '';
-                    if ($statut_reel !== 'terminee') {
-                        $echeance = new DateTime($t['date_echeance']);
-                        $aujourdhui = new DateTime();
-                        if ($echeance < $aujourdhui) {
-                           $statut_reel = 'en_retard';
-                           $jours_restants = "Échue";
-                        } else {
-                           $diff = $aujourdhui->diff($echeance);
-                           $jours_restants = $diff->days . ' jour(s) restant(s)';
-                        }
-                    }
-                ?>
-                <div class="tache-card status-card-<?php echo $statut_reel; ?>">
-                    <div class="tache-card-header">
-                        <h3><?php echo htmlspecialchars($t['titre']); ?></h3>
-                    </div>
-                    <div class="tache-card-body">
-                        <div class="tache-info">
-                             <div class="info-line">
-                                <i class="fas fa-calendar-alt"></i>
-                                Échéance : <span><?php echo date('d/m/Y', strtotime($t['date_echeance'])); ?></span>
-                            </div>
-                            <div class="info-line">
-                                <i class="fas fa-hourglass-half"></i>
-                                Délai : <span><?php echo $jours_restants; ?></span>
-                            </div>
-                            <div class="info-line">
-                                <i class="fas fa-align-left"></i>
-                                <p><?php echo nl2br(htmlspecialchars($t['description'])); ?></p>
-                            </div>
-                            <?php if ($t['nom_fichier_original']): ?>
-                                <div class="info-line">
-                                    <i class="fas fa-paperclip"></i>
-                                    <a href="uploads/taches/<?php echo $t['fichier_joint']; ?>" target="_blank">
-                                        Télécharger le fichier joint
-                                    </a>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <div class="tache-card-footer">
-                        <span class="status-badge status-<?php echo $statut_reel; ?>"><?php echo str_replace('_', ' ', $statut_reel); ?></span>
-                        <div class="tache-actions">
-                            <?php if ($statut_reel !== 'terminee'): ?>
-                                <button class="btn btn-sm btn-success" onclick="terminerTache(<?php echo $t['id']; ?>)">
-                                    <i class="fas fa-check-circle"></i> Terminer
-                                </button>
-                            <?php endif; ?>
-                        </div>
-                    </div>
+    <?php
+        // ... (votre code PHP pour calculer le statut et les jours restants est correct)
+        $statut_reel = $t['statut'];
+        $jours_restants = '';
+        if ($statut_reel !== 'terminee') {
+            $echeance = new DateTime($t['date_echeance']);
+            $aujourdhui = new DateTime();
+            $diff = $aujourdhui->diff($echeance);
+            if ($aujourdhui > $echeance) {
+                $statut_reel = 'en_retard';
+                $jours_restants = "Échue depuis " . $diff->days . " jour(s)";
+            } else {
+                $jours_restants = $diff->days . ' jour(s) restant(s)';
+            }
+        }
+    ?>
+    <!-- STRUCTURE HTML CORRIGÉE -->
+    <div class="tache-card status-card-<?php echo $statut_reel; ?>" onclick="voirTache(<?php echo $t['id']; ?>)" style="cursor: pointer;">
+        <div class="tache-card-header">
+            <h3><?php echo htmlspecialchars($t['titre']); ?></h3>
+        </div>
+        <div class="tache-card-body">
+            <div class="tache-info">
+                <div class="info-line">
+                    <i class="fas fa-calendar-alt"></i>
+                    Échéance : <span><?php echo date('d/m/Y', strtotime($t['date_echeance'])); ?></span>
                 </div>
-            <?php endwhile; ?>
+                <div class="info-line">
+                    <i class="fas fa-hourglass-half"></i>
+                    Délai : <span><?php echo $jours_restants; ?></span>
+                </div>
+                <div class="info-line">
+                    <i class="fas fa-align-left"></i>
+                    <!-- Utilisation de <p> pour une meilleure sémantique et contrôle du style -->
+                    <p><?php echo htmlspecialchars(substr($t['description'], 0, 80)) . '...'; ?></p>
+                </div>
+                <?php if ($t['nom_fichier_original']): ?>
+                    <div class="info-line">
+                        <i class="fas fa-paperclip"></i>
+                        Fichier joint disponible
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="tache-card-footer">
+            <span class="status-badge status-<?php echo $statut_reel; ?>"><?php echo str_replace('_', ' ', $statut_reel); ?></span>
+            <div class="tache-actions">
+                <?php if ($statut_reel !== 'terminee'): ?>
+                    <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); terminerTache(<?php echo $t['id']; ?>)">
+                        <i class="fas fa-check-circle"></i> Terminer
+                    </button>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+<?php endwhile; ?>
         <?php else: ?>
             <div class="empty-state">
                 <i class="fas fa-tasks"></i>
@@ -811,6 +850,10 @@ switch ($onglet_actif) {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="fermerModal('modalVoirMessage')">Fermer</button>
+                <!-- NOUVEAU BOUTON RÉPONDRE -->
+                <button type="button" class="btn btn-primary" id="boutonRepondreMessage" onclick="repondreAuMessage()">
+                    <i class="fas fa-reply"></i> Répondre
+                </button>
             </div>
         </div>
     </div>
@@ -864,6 +907,27 @@ switch ($onglet_actif) {
             </form>
         </div>
     </div>
+
+<!-- ======================================================= -->
+<!-- ============ NOUVELLE MODALE : VOIR TÂCHE ============= -->
+<!-- ======================================================= -->
+<div id="modalVoirTache" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="tacheModalTitle">Détails de la tâche</h3>
+            <button class="modal-close" onclick="fermerModal('modalVoirTache')">
+                <i class="fas fa-times"></i>
+            </button>
+    </div>
+    <div class="modal-body" id="tacheModalBody">
+<!-- Le contenu sera injecté ici par JavaScript -->
+        <div class="loading-spinner"></div>
+    </div>
+    <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" onclick="fermerModal('modalVoirTache')">Fermer</button>
+        </div>
+    </div>
+</div>
 <?php if ($theme_stagiaire): ?>
 <div id="modalVoirTheme" class="modal">
     <div class="modal-content">
@@ -893,6 +957,27 @@ switch ($onglet_actif) {
     </div>
 </div>
 <?php endif; ?>
+<!-- ======================================================= -->
+<!-- ============= NOUVELLE MODALE : VOIR RAPPORT ============ -->
+<!-- ======================================================= -->
+<div id="modalVoirRapport" class="modal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h3 id="rapportModalTitle">Détails du Rapport</h3>
+            <button class="modal-close" onclick="fermerModal('modalVoirRapport')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="rapportModalBody">
+            <!-- Le contenu détaillé du rapport sera injecté ici par JavaScript -->
+            <div class="loading-spinner"></div>
+        </div>
+        <div class="modal-footer" id="rapportModalFooter">
+            <!-- Les boutons (Télécharger, Fermer) seront injectés ici -->
+            <button type="button" class="btn btn-secondary" onclick="fermerModal('modalVoirRapport')">Fermer</button>
+        </div>
+    </div>
+</div>
     <!-- Zone de notifications -->
     <div id="notifications"></div>
    

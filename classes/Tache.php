@@ -177,12 +177,15 @@ class Tache {
     /**
      * Récupère les tâches pour un stagiaire
      */
-    public function getTachesPourStagiaire($stagiaire_id, $filtre = 'toutes') {
-        // Mettre à jour les tâches en retard
+    public function getTachesPourStagiaire($stagiaire_id, $filtre = 'toutes', $recherche = '') {
+        // La mise à jour des statuts en retard reste
         $this->updateStatutsEnRetard($stagiaire_id);
         
         $sql = "SELECT * FROM taches WHERE stagiaire_id = ?";
+        $params = [$stagiaire_id];
+        $types = "i";
         
+        // Application du filtre de statut
         switch($filtre) {
             case 'en_cours':
                 $sql .= " AND statut = 'en_attente' AND date_echeance >= CURDATE()";
@@ -195,10 +198,18 @@ class Tache {
                 break;
         }
 
+        // NOUVEAU : Application du filtre de recherche
+        if (!empty($recherche)) {
+            $sql .= " AND (titre LIKE ? OR description LIKE ?)";
+            $searchTerm = "%{$recherche}%";
+            array_push($params, $searchTerm, $searchTerm);
+            $types .= "ss";
+        }
+
         $sql .= " ORDER BY date_echeance ASC";
         
         $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param("i", $stagiaire_id);
+        $stmt->bind_param($types, ...$params);
         $stmt->execute();
         return $stmt->get_result();
     }

@@ -30,7 +30,7 @@ class Evaluation
         } else {
             return array_merge([
                 'id' => null, 'stagiaire_id' => $stagiaire_id,
-                'commentaires' => '', 'date_evaluation' => null
+                'date_evaluation' => null // La virgule a été supprimée
             ], $stats);
         }
     }
@@ -38,31 +38,32 @@ class Evaluation
     /**
      * Enregistre les commentaires et les notes calculées.
      */
-    public function sauvegarderCommentaire($data)
+    public function sauvegarder($data)
     {
         $stats = $this->calculerToutesStatistiques($data['stagiaire_id']);
 
         if (isset($data['evaluation_id']) && !empty($data['evaluation_id'])) {
+            // UPDATE
             $sql = "UPDATE evaluations SET 
-                        commentaires = ?, note_presence = ?, note_taches = ?, note_rapports = ?, note_globale = ?
+                        note_presence = ?, note_taches = ?, note_rapports = ?, note_globale = ?
                     WHERE id = ?";
             $stmt = $this->conn->prepare($sql);
-            $stmt->bind_param("sddddi", 
-                $data['commentaires'], $stats['note_presence'], $stats['note_taches'], 
+            $stmt->bind_param("ddddi", 
+                $stats['note_presence'], $stats['note_taches'], 
                 $stats['note_rapports'], $stats['note_globale'], $data['evaluation_id']
             );
         } else {
-            $sql = "INSERT INTO evaluations (stagiaire_id, encadreur_id, commentaires, note_presence, note_taches, note_rapports, note_globale)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)";
+            // INSERT
+            $sql = "INSERT INTO evaluations (stagiaire_id, encadreur_id, note_presence, note_taches, note_rapports, note_globale)
+                    VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $this->conn->prepare($sql);
-            $stmt->bind_param("iisdddd", 
-                $data['stagiaire_id'], $data['encadreur_id'], $data['commentaires'], 
+            $stmt->bind_param("iisddd", 
+                $data['stagiaire_id'], $data['encadreur_id'],
                 $stats['note_presence'], $stats['note_taches'], $stats['note_rapports'], $stats['note_globale']
             );
         }
         return $stmt->execute();
     }
-
     /**
      * Fonction centrale qui calcule toutes les statistiques et les scores.
      * CORRECTION : Renvoie un tableau avec les bonnes clés attendues par la vue.

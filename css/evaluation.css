@@ -1,1 +1,141 @@
 .evaluation-content{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:2rem}.evaluation-header{text-align:center;border-bottom:1px solid var(--border-color);padding-bottom:1.5rem}.evaluation-header h1{font-size:2rem;color:var(--primary-color);margin:0}.evaluation-header h2{font-size:1.2rem;font-weight:400;color:var(--text-secondary);margin:.25rem 0}.date-evaluation{font-size:.9rem;color:var(--text-secondary);font-style:italic}.evaluation-section{background-color:var(--surface-color);padding:2rem;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.08)}.section-header{display:flex;align-items:center;gap:.75rem;color:var(--text-primary);margin-bottom:1.5rem}.section-header i{font-size:1.2rem;color:var(--primary-color)}.section-header h3{margin:0;font-size:1.25rem}.performance-overview{display:grid;grid-template-columns:1fr 2fr;align-items:center;gap:3rem}.global-score-wrap{display:flex;justify-content:center;align-items:center}.detailed-scores-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;text-align:center}.stat-circle-wrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:.5rem}.stat-circle{width:100%;max-width:180px;height:auto}.stat-circle-wrap.large .stat-circle{max-width:220px}.stat-circle .circle-bg{fill:none;stroke:#eee;stroke-width:3}.stat-circle .circle{fill:none;stroke-width:3;stroke-linecap:round;transform-origin:50% 50%;transform:rotate(-90deg);animation:circle-progress 1.2s ease-out forwards}.stat-circle .circle-global{stroke:var(--primary-color)}.stat-circle .circle-success{stroke:var(--success-color)}.stat-circle .circle-warning{stroke:var(--warning-color)}.stat-circle .circle-danger{stroke:var(--accent-color)}@keyframes circle-progress{0%{stroke-dasharray:0 100}}.stat-circle-info{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;line-height:1.2}.stat-circle-info .stat-value{font-size:1.8rem;font-weight:700;color:var(--text-primary)}.stat-circle-info .stat-value small{font-size:1rem;color:var(--text-secondary)}.stat-circle-wrap.large .stat-value{font-size:3rem}.stat-circle-wrap.large .stat-value small{font-size:1.5rem}.stat-circle-info .stat-label{font-size:.9rem;color:var(--text-secondary)}.stat-label{font-size:1rem;font-weight:500;color:var(--text-primary);margin-top:.5rem}.evaluation-footer{text-align:center;margin-top:1rem}textarea[name=commentaires]{width:100%;min-height:120px;padding:1rem;border-radius:8px;border:1px solid var(--border-color);font-size:1rem;resize:vertical}@media (max-width:900px){.performance-overview{grid-template-columns:1fr;gap:2rem}.detailed-scores-grid{justify-content:space-around}}@media (max-width:500px){.detailed-scores-grid{grid-template-columns:1fr;gap:2.5rem}}
+/* ===================================================================
+==        STYLES COMPLETS POUR LA PAGE D'ÉVALUATION (DESIGN)       ==
+=================================================================== */
+
+/* --- Conteneur principal de la page de sélection --- */
+.evaluation-selection-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.evaluation-selection-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.evaluation-selection-header h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.evaluation-selection-header p {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* --- Barre de recherche stylisée --- */
+.selection-toolbar {
+    margin-bottom: 2.5rem;
+    display: flex;
+    justify-content: center;
+}
+
+.search-box-stylish {
+    position: relative;
+    width: 100%;
+    max-width: 450px;
+}
+
+.search-box-stylish i {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.search-box-stylish input {
+    width: 100%;
+    padding: 1rem 1rem 1rem 3rem;
+    border-radius: 30px; /* Complètement arrondi */
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    font-size: 1rem;
+    box-shadow: var(--shadow);
+    transition: all 0.3s ease;
+}
+
+.search-box-stylish input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.15);
+}
+
+/* --- Grille des cartes de stagiaires --- */
+.evaluation-stagiaire-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.stagiaire-select-card {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    background-color: var(--surface-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+    text-decoration: none;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.stagiaire-select-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-color);
+}
+
+.stagiaire-select-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    flex-shrink: 0;
+}
+
+.stagiaire-select-info {
+    flex-grow: 1;
+}
+
+.stagiaire-select-info h3 {
+    margin: 0 0 4px 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.stagiaire-select-info span {
+    font-size: 0.9rem;
+    color: var(--primary-color);
+    font-weight: 500;
+    text-decoration: underline;
+}
+
+.stagiaire-select-arrow {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    opacity: 0.5;
+    transition: transform 0.3s ease;
+}
+
+.stagiaire-select-card:hover .stagiaire-select-arrow {
+    transform: translateX(5px);
+    color: var(--primary-color);
+    opacity: 1;
+}
+
+

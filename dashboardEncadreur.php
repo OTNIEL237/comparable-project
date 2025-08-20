@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             echo json_encode(['success' => $resultat]);
             exit();
 
-                case 'creer_tache':
+        case 'creer_tache':
             $_POST['encadreur_id'] = $user_id;
             $fichier = isset($_FILES['fichier_joint']) ? $_FILES['fichier_joint'] : null;
             $resultat = $tache->creer($_POST, $fichier);
@@ -163,6 +163,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ]);
             exit();
 
+        case 'get_rapport_details':
+            // L'ID du rapport est passé en POST
+            if (isset($_POST['rapport_id'])) {
+                $rapport_id = (int)$_POST['rapport_id'];
+                
+                // On utilise la méthode statique qui n'a pas besoin d'instance
+                $rapport_details = Rapport::getRapportById($rapport_id, $user_id, $role);
+                
+                if ($rapport_details) {
+                    echo json_encode(['success' => true, 'data' => $rapport_details]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Rapport non trouvé ou accès refusé.']);
+                }
+            } else {
+                echo json_encode(['success' => false, 'message' => 'ID de rapport manquant.']);
+            }
+            exit();
+
+        case 'sauvegarder_evaluation':
+            $evaluation = new Evaluation();
+            // On appelle la nouvelle méthode "sauvegarder"
+            $resultat = $evaluation->sauvegarder($_POST);
+            echo json_encode(['success' => $resultat]);
+            exit();
+
 
     }
 }
@@ -183,16 +208,26 @@ switch ($onglet_actif) {
     case 'rapports':
         $rapports = Rapport::getRapportsEncadreur($user_id, $filtre, $recherche);
         break;
-    case 'gestion-stagiaires':
-        $stagiaires_sql = "SELECT u.id, u.nom, u.prenom, u.email, s.date_debut, s.date_fin 
-                          FROM utilisateurs u 
-                          JOIN stagiaire s ON u.id = s.id_utilisateur 
-                          WHERE s.encadreur_id = ? 
-                          ORDER BY u.nom, u.prenom";
-        $stagiaires_stmt = $conn->prepare($stagiaires_sql);
-        $stagiaires_stmt->bind_param("i", $user_id);
-        $stagiaires_stmt->execute();
-        $stagiaires = $stagiaires_stmt->get_result();
+     case 'gestion-stagiaires':
+        $sql = "SELECT u.id, u.nom, u.prenom, u.email, s.date_debut, s.date_fin 
+                FROM utilisateurs u 
+                JOIN stagiaire s ON u.id = s.id_utilisateur 
+                WHERE s.encadreur_id = ?";
+        $params = [$user_id];
+        $types = "i";
+
+        if (!empty($recherche)) {
+            $sql .= " AND (u.nom LIKE ? OR u.prenom LIKE ? OR u.email LIKE ?)";
+            $searchTerm = "%{$recherche}%";
+            array_push($params, $searchTerm, $searchTerm, $searchTerm);
+            $types .= "sss";
+        }
+        $sql .= " ORDER BY u.nom, u.prenom";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $stagiaires = $stmt->get_result();
         break;
 
     case 'taches':
@@ -239,8 +274,26 @@ switch ($onglet_actif) {
 
     case 'gestion-theme':
         $theme = new Theme();
-        $themes = $theme->getThemesByEncadreur($user_id);
+        $themes = $theme->getThemesByEncadreur($user_id, $recherche);
+         $stagiaires_sql = "SELECT u.id, u.prenom, u.nom 
+                           FROM utilisateurs u 
+                           JOIN stagiaire s ON u.id = s.id_utilisateur 
+                           WHERE s.encadreur_id = ?";
         
+        $params = [$user_id];
+        $types = "i";
+        
+        if (!empty($recherche)) {
+            $stagiaires_sql .= " AND (u.nom LIKE ? OR u.prenom LIKE ?)";
+            $searchTerm = "%{$recherche}%";
+            array_push($params, $searchTerm, $searchTerm);
+            $types .= "ss";
+        }
+        
+        $stagiaires_stmt = $conn->prepare($stagiaires_sql);
+        $stagiaires_stmt->bind_param($types, ...$params);
+        $stagiaires_stmt->execute();
+        $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         // On garde la liste des stagiaires pour le modal d'attribution
         $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur WHERE s.encadreur_id = ?";
         $stagiaires_stmt = $conn->prepare($stagiaires_sql);
@@ -249,33 +302,56 @@ switch ($onglet_actif) {
         $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         break;
 
-        case 'evaluation': 
-            // Récupérer la liste des stagiaires de l'encadreur
-            $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur WHERE s.encadreur_id = ?";
-            $stagiaires_stmt = $conn->prepare($stagiaires_sql);
-            $stagiaires_stmt->bind_param("i", $user_id);
-            $stagiaires_stmt->execute();
-            $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    case 'evaluation':
+        // --- Récupération de la liste des stagiaires pour l'affichage ---
+        
+        // Requête SQL de base pour récupérer les stagiaires de l'encadreur connecté
+        $stagiaires_sql = "SELECT u.id, u.prenom, u.nom 
+                            FROM utilisateurs u 
+                            JOIN stagiaire s ON u.id = s.id_utilisateur 
+                            WHERE s.encadreur_id = ?";
+        
+        // Initialisation des paramètres pour la requête préparée
+        $params = [$user_id];
+        $types = "i";
+        
+        // Si un terme de recherche est présent, on l'ajoute à la requête
+        if (!empty($recherche)) {
+            $stagiaires_sql .= " AND (u.nom LIKE ? OR u.prenom LIKE ?)";
+            $searchTerm = "%{$recherche}%";
+            array_push($params, $searchTerm, $searchTerm);
+            $types .= "ss";
+        }
+        
+        // Préparation et exécution de la requête
+        $stagiaires_stmt = $conn->prepare($stagiaires_sql);
+        $stagiaires_stmt->bind_param($types, ...$params);
+        $stagiaires_stmt->execute();
+        $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-            // Si un stagiaire est sélectionné, charger ses données d'évaluation
-            if (isset($_GET['stagiaire_id'])) {
-                $stagiaire_id_eval = intval($_GET['stagiaire_id']);
-                
-                // (Optionnel mais recommandé) Vérifier que l'encadreur a le droit de voir ce stagiaire
-                $is_my_stagiaire = false;
-                foreach ($stagiaires_encadreur as $stag) {
-                    if ($stag['id'] == $stagiaire_id_eval) {
-                        $is_my_stagiaire = true;
-                        $stagiaire_info = $stag; // Garder les infos pour l'affichage
-                        break;
-                    }
-                }
+        // --- Logique pour afficher les détails d'un stagiaire sélectionné ---
 
-                if ($is_my_stagiaire) {
-                    $evaluation = new Evaluation();
-                    $evaluation_data = $evaluation->getEvaluationForStagiaire($stagiaire_id_eval);
+        // Si un stagiaire_id est passé dans l'URL, on charge ses données d'évaluation
+        if (isset($_GET['stagiaire_id'])) {
+            $stagiaire_id_eval = intval($_GET['stagiaire_id']);
+            
+            // Sécurité : Vérifier que l'encadreur a bien le droit de voir ce stagiaire
+            // (On vérifie si l'ID sélectionné est dans la liste de ses stagiaires)
+            $is_my_stagiaire = false;
+            foreach ($stagiaires_encadreur as $stag) {
+                if ($stag['id'] == $stagiaire_id_eval) {
+                    $is_my_stagiaire = true;
+                    $stagiaire_info = $stag; // On stocke les infos pour l'affichage du nom
+                    break;
                 }
             }
+
+            // Si c'est bien son stagiaire, on charge les données d'évaluation
+            if ($is_my_stagiaire) {
+                $evaluation = new Evaluation();
+                $evaluation_data = $evaluation->getEvaluationForStagiaire($stagiaire_id_eval);
+            }
+        }
         break;
 
 }
@@ -553,9 +629,9 @@ switch ($onglet_actif) {
                                         <p><?php echo htmlspecialchars(substr($rpt['activites'], 0, 150)) . '...'; ?></p>
                                     </div>
                                     <div class="rapport-actions">
-                                            <a href="voir_rapport.php?id=<?= $rpt['id'] ?>" class="btn btn-sm">
-                                            <i class="fas fa-eye"></i> Voir
-                                            </a>
+                                            <button class="btn btn-sm" onclick="voirRapport(<?php echo $rpt['id']; ?>)">
+                                                <i class="fas fa-eye"></i> Voir
+                                            </button>
                                             <a href="telecharger_rapport.php?id=<?= $rpt['id'] ?>" class="btn btn-sm btn-download">
                                                 <i class="fas fa-download"></i> PDF
                                             </a>
@@ -699,7 +775,7 @@ switch ($onglet_actif) {
                 <!-- Sélecteur de stagiaire -->
                 <form method="GET" class="stagiaire-select-form">
                     <input type="hidden" name="tab" value="presences">
-                    <select name="stagiaire_id" onchange="this.form.submit()" class="filter-select">
+                    <select id="stagiaire-select-presence" name="stagiaire_id" onchange="this.form.submit()" class="filter-select">
                         <option value="">-- Choisir un stagiaire --</option>
                         <?php foreach($stagiaires_encadreur as $stag): ?>
                             <option value="<?php echo $stag['id']; ?>" <?php if($stag['id'] == $stagiaire_id_selectionne) echo 'selected'; ?>>
@@ -860,11 +936,21 @@ switch ($onglet_actif) {
 <?php elseif ($onglet_actif === 'gestion-stagiaires'): ?>
     <div class="gestion-stagiaires-content">
         <div class="toolbar">
-            <div class="toolbar-left">
-                <!-- Le titre est conservé, le bouton d'ajout est supprimé -->
-                <h2>Mes Stagiaires</h2>
+    <div class="toolbar-left">
+        <h2>Mes Stagiaires</h2>
+    </div>
+    <div class="toolbar-right">
+        <!-- NOUVELLE BARRE DE RECHERCHE -->
+        <form method="GET" class="search-form">
+            <input type="hidden" name="tab" value="gestion-stagiaires">
+            <div class="search-box">
+                <input type="text" name="search" placeholder="Rechercher un stagiaire..." value="<?php echo htmlspecialchars($recherche); ?>">
+                <button type="submit"><i class="fas fa-search"></i></button>
             </div>
-        </div>
+        </form>
+    </div>
+</div>
+        
 
         <div class="stagiaires-grid">
             <?php if (isset($stagiaires) && $stagiaires->num_rows > 0): ?>
@@ -909,15 +995,22 @@ switch ($onglet_actif) {
             <?php elseif ($onglet_actif === 'gestion-theme'): ?>
 <div class="themes-content">
     <div class="toolbar">
-        <div class="toolbar-left">
-            <h2>Gestion des Thèmes</h2>
-        </div>
-        <div class="toolbar-right">
-            <button class="btn btn-primary" onclick="ouvrirModalTheme()">
-                <i class="fas fa-plus"></i> Nouveau Thème
-            </button>
-        </div>
+    <div class="toolbar-left">
+        <button class="btn btn-primary" onclick="ouvrirModalTheme()">
+            <i class="fas fa-plus"></i> Nouveau Thème
+        </button>
     </div>
+    <div class="toolbar-right">
+        <!-- NOUVELLE BARRE DE RECHERCHE -->
+        <form method="GET" class="search-form">
+            <input type="hidden" name="tab" value="gestion-theme">
+            <div class="search-box">
+                <input type="text" name="search" placeholder="Rechercher un thème..." value="<?php echo htmlspecialchars($recherche); ?>">
+                <button type="submit"><i class="fas fa-search"></i></button>
+            </div>
+        </form>
+    </div>
+</div>
     <div class="themes-grid">
         <?php if ($themes->num_rows > 0): ?>
             <?php while($th = $themes->fetch_assoc()): ?>
@@ -976,33 +1069,49 @@ switch ($onglet_actif) {
         <?php include 'evaluation_view.php'; ?>
 
     <?php else: // Sinon, afficher la liste des stagiaires à évaluer ?>
-        
-        <div class="evaluation-selection">
-            <h1>Sélectionner un Stagiaire</h1>
-            <p>Cliquez sur un stagiaire pour consulter son rapport de performance.</p>
-            <div class="stagiaires-grid">
+        <div class="evaluation-selection-container">
+            <div class="evaluation-selection-header">
+                <h1>Sélectionner un Stagiaire</h1>
+                <p>Cliquez sur un stagiaire pour consulter ou remplir son rapport de performance.</p>
+            </div>
+
+            <!-- Barre de recherche stylisée -->
+            <div class="selection-toolbar">
+                <form method="GET" class="search-form">
+                    <input type="hidden" name="tab" value="evaluation">
+                    <div class="search-box-stylish">
+                        <i class="fas fa-search"></i>
+                        <input type="text" name="search" placeholder="Rechercher un stagiaire..." value="<?php echo htmlspecialchars($recherche); ?>">
+                    </div>
+                </form>
+            </div>
+
+            <!-- Nouvelle grille pour les cartes de stagiaire -->
+            <div class="evaluation-stagiaire-grid">
                 <?php if (!empty($stagiaires_encadreur)): ?>
                     <?php foreach ($stagiaires_encadreur as $stag): ?>
-                        <a href="?tab=evaluation&stagiaire_id=<?php echo $stag['id']; ?>" class="stagiaire-card-link">
-                            <div class="stagiaire-card">
-                                <div class="stagiaire-avatar">
-                                    <i class="fas fa-user-graduate"></i>
-                                </div>
-                                <div class="stagiaire-info">
-                                    <h3><?php echo htmlspecialchars($stag['prenom'] . ' ' . $stag['nom']); ?></h3>
-                                    <span>Voir l'évaluation</span>
-                                </div>
+                        <a href="?tab=evaluation&stagiaire_id=<?php echo $stag['id']; ?>" class="stagiaire-select-card">
+                            <div class="stagiaire-select-avatar">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
+                            <div class="stagiaire-select-info">
+                                <h3><?php echo htmlspecialchars($stag['prenom'] . ' ' . $stag['nom']); ?></h3>
+                                <span>Voir l'évaluation</span>
+                            </div>
+                            <div class="stagiaire-select-arrow">
+                                <i class="fas fa-chevron-right"></i>
                             </div>
                         </a>
                     <?php endforeach; ?>
                 <?php else: ?>
                     <div class="empty-state">
-                        <i class="fas fa-users"></i>
-                        <p>Vous n'avez aucun stagiaire assigné.</p>
+                        <i class="fas fa-users-slash"></i>
+                        <p>Aucun stagiaire ne correspond à votre recherche.</p>
                     </div>
                 <?php endif; ?>
             </div>
         </div>
+        
 
     <?php endif; ?>
 <?php endif; ?>
@@ -1153,6 +1262,27 @@ switch ($onglet_actif) {
                 <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Enregistrer</button>
             </div>
         </form>
+    </div>
+</div>
+<!-- ======================================================= -->
+<!-- ============= NOUVELLE MODALE : VOIR RAPPORT ============ -->
+<!-- ======================================================= -->
+<div id="modalVoirRapport" class="modal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h3 id="rapportModalTitle">Détails du Rapport</h3>
+            <button class="modal-close" onclick="fermerModal('modalVoirRapport')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="rapportModalBody">
+            <!-- Le contenu détaillé du rapport sera injecté ici par JavaScript -->
+            <div class="loading-spinner"></div>
+        </div>
+        <div class="modal-footer" id="rapportModalFooter">
+            <!-- Les boutons (Télécharger, Fermer) seront injectés ici -->
+            <button type="button" class="btn btn-secondary" onclick="fermerModal('modalVoirRapport')">Fermer</button>
+        </div>
     </div>
 </div>
 
@@ -1569,5 +1699,6 @@ function afficherNotification(message, type = 'info') {
 
 
 </script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </body>
 </html>

@@ -251,3 +251,54 @@
     margin-bottom: 1rem;
     opacity: 0.5;
 }
+/* ===================================================================
+==               STYLES POUR L'INTÉGRATION DE SELECT2              ==
+=================================================================== */
+
+/* Ajuster le conteneur du select pour qu'il prenne toute la largeur disponible */
+.select2-container {
+    width: 100% !important;
+    min-width: 300px;
+}
+
+/* Style de la sélection (le champ visible) */
+.select2-container--default .select2-selection--single {
+    height: 45px !important; /* Adapter la hauteur à vos autres champs */
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    background: var(--surface-color) !important;
+    box-shadow: 0 2px 5px rgba(0, 102, 204, 0.08);
+}
+
+/* Style du texte sélectionné */
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: var(--text-primary) !important;
+    line-height: 43px !important;
+    padding-left: 15px !important;
+    font-weight: 500;
+}
+
+/* Style de la flèche */
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 43px !important;
+}
+
+/* Style de la liste déroulante */
+.select2-dropdown {
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+/* Style du champ de recherche dans la liste */
+.select2-container--default .select2-search--dropdown .select2-search__field {
+    border-radius: 6px;
+    border: 1px solid var(--border-color) !important;
+    padding: 8px 12px;
+}
+
+/* Style des résultats de recherche */
+.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+}

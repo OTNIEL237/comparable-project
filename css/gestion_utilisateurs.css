@@ -1,0 +1,348 @@
+/* ===================================================================
+==        STYLES AMÉLIORÉS POUR LA GESTION DES UTILISATEURS        ==
+=================================================================== */
+
+/* --- Conteneur et barre d'outils --- */
+.gestion-utilisateurs-content .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* --- Style de la table --- */
+.users-list {
+    overflow-x: auto;
+    /* Permet le scroll horizontal sur mobile */
+    background-color: var(--surface-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+}
+
+.users-list table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.users-list th,
+.users-list td {
+    padding: 1rem 1.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+    /* Empêche le texte de passer à la ligne */
+}
+
+.users-list th {
+    background-color: var(--background-color);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+/* Coins arrondis pour la première et dernière colonne */
+.users-list th:first-child {
+    border-top-left-radius: 12px;
+}
+
+.users-list th:last-child {
+    border-top-right-radius: 12px;
+    text-align: center;
+}
+
+.users-list tr:last-child td {
+    border-bottom: none;
+}
+
+.users-list tbody tr {
+    transition: background-color 0.2s ease-in-out;
+}
+
+.users-list tbody tr:hover {
+    background-color: var(--primary-light);
+}
+
+.users-list tbody td {
+    color: var(--text-primary);
+}
+
+/* --- Badges de Rôle et Statut --- */
+.role-badge,
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fff;
+    text-transform: capitalize;
+    display: inline-block;
+}
+
+.role-admin {
+    background: linear-gradient(135deg, #6f42c1, #8a2be2);
+}
+
+.role-encadreur {
+    background: linear-gradient(135deg, #0066cc, #007bff);
+}
+
+.role-stagiaire {
+    background: linear-gradient(135deg, #17a2b8, #20c997);
+}
+
+.status-actif {
+    background: linear-gradient(135deg, #28a745, #20c997);
+}
+
+.status-bloque {
+    background: linear-gradient(135deg, #dc3545, #ff6b7b);
+}
+
+/* --- Cellule des Actions --- */
+.actions-cell {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.actions-cell .btn-sm {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+    border-radius: 50%;
+    /* Boutons ronds */
+    padding: 0;
+    border: 1px solid transparent;
+}
+
+.actions-cell .btn-sm i {
+    margin: 0;
+}
+
+/* --- Style de la modale d'affectation --- */
+#modalAffecterEncadreur .filter-select {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+/* ===================================================================
+==               STYLES "WOUAH!" POUR LES FORMULAIRES              ==
+=================================================================== */
+
+/* --- Style général des modales --- */
+.modal-content {
+    border-radius: var(--border-radius);
+    border-top: 5px solid var(--primary-color);
+    box-shadow: var(--shadow-lg);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.modal-content.large {
+    max-width: 800px; /* Taille plus grande pour les formulaires complexes */
+}
+
+.modal-header {
+    background: var(--background-color);
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.modal-header h3 {
+    font-weight: 600;
+    font-size: 1.25rem;
+}
+.modal-close {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+.modal-footer {
+    background: var(--background-color);
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+/* --- Style des éléments de formulaire --- */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="password"],
+.form-group input[type="tel"],
+.form-group input[type="date"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--surface-color);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px var(--primary-light);
+}
+
+/* --- Grille pour les formulaires --- */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+/* --- Séparateurs et titres de section dans les formulaires --- */
+.modal-body hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 2rem 0;
+}
+
+.modal-body h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.role-fields {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px dashed var(--border-color);
+    animation: fadeIn 0.5s;
+}
+/* ... (Le CSS de base de la réponse précédente est conservé) ... */
+
+/* --- AMÉLIORATION DE LA GESTION DES UTILISATEURS --- */
+.users-list {
+    border: none; /* On enlève la bordure pour un effet plus flottant */
+}
+.users-list td {
+    vertical-align: middle;
+}
+.users-list tbody tr:hover {
+    transform: scale(1.02);
+    box-shadow: var(--shadow-lg);
+    z-index: 10;
+    position: relative;
+}
+.actions-cell .btn-sm {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    transition: all 0.2s ease-in-out;
+}
+.actions-cell .btn-sm:hover {
+    transform: scale(1.2);
+}
+.actions-cell .btn-info:hover { color: var(--primary-color); }
+.actions-cell .btn-secondary:hover { color: var(--text-primary); }
+.actions-cell .btn-warning:hover { color: var(--warning-color); }
+.actions-cell .btn-success:hover { color: var(--success-color); }
+.actions-cell .btn-danger:hover { color: var(--danger-color); }
+
+/* --- STYLE "WOUAH !" POUR LA MODALE UTILISATEUR --- */
+#modalUtilisateur .modal-content.large { max-width: 900px; }
+#modalUtilisateur h4 {
+    position: relative;
+    padding-left: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+#modalUtilisateur h4::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 100%;
+    background-color: var(--primary-color);
+    border-radius: 2px;
+}
+#modalUtilisateur hr { display: none; }
+/* ===================================================================
+==               STYLE "WOUAH !" POUR LA MODALE UTILISATEUR          ==
+=================================================================== */
+
+#modalUtilisateur .modal-content.large {
+    max-width: 900px;
+}
+
+#modalUtilisateur .modal-header {
+    background: var(--background-color);
+}
+
+#modalUtilisateur h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+#modalUtilisateur h4:first-of-type {
+    margin-top: 0;
+}
+
+#modalUtilisateur .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+#modalUtilisateur hr {
+    display: none; /* Remplacé par les titres stylisés */
+}
+
+.role-fields {
+    margin-top: 1rem;
+    padding: 1.5rem;
+    background-color: var(--background-color);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    animation: fadeIn 0.5s ease;
+}
+
+.role-fields h5 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+}

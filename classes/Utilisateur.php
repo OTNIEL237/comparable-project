@@ -79,5 +79,190 @@ class Utilisateur {
             throw new Exception("Erreur lors de la mise à jour du mot de passe");
         }
     }
+
+     public static function listerTous($recherche = '')
+    {
+        $conn = Database::getConnection();
+        $sql = "SELECT 
+                    u.id, u.nom, u.prenom, u.email, u.role, u.statut,
+                    s.encadreur_id, 
+                    enc_u.prenom as enc_prenom, 
+                    enc_u.nom as enc_nom
+                FROM utilisateurs u
+                LEFT JOIN stagiaire s ON u.id = s.id_utilisateur
+                LEFT JOIN utilisateurs enc_u ON s.encadreur_id = enc_u.id";
+        
+        $params = [];
+        $types = "";
+
+        if (!empty($recherche)) {
+            $sql .= " WHERE u.nom LIKE ? OR u.prenom LIKE ? OR u.email LIKE ?";
+            $searchTerm = "%{$recherche}%";
+            array_push($params, $searchTerm, $searchTerm, $searchTerm);
+            $types .= "sss";
+        }
+        $sql .= " ORDER BY u.role, u.nom, u.prenom";
+        
+        $stmt = $conn->prepare($sql);
+        if (!empty($params)) {
+            $stmt->bind_param($types, ...$params);
+        }
+        $stmt->execute();
+        return $stmt->get_result();
+    }
+    
+    /**
+     * Crée un nouvel utilisateur (stagiaire ou encadreur) avec une transaction.
+     * @param array $data Données du formulaire.
+     * @return bool Succès de la création.
+     */
+    public static function creer($data)
+    {
+        $conn = Database::getConnection();
+        $conn->begin_transaction();
+        try {
+            $password_en_clair = $data['password'];
+            
+            $sql_user = "INSERT INTO utilisateurs (nom, prenom, email, password, role, sex, telephone) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $stmt_user = $conn->prepare($sql_user);
+            $stmt_user->bind_param("sssssss", $data['nom'], $data['prenom'], $data['email'], $password_en_clair, $data['role'], $data['sex'], $data['telephone']);
+            
+            if (!$stmt_user->execute()) {
+                throw new Exception("Impossible de créer l'utilisateur. L'email existe peut-être déjà.");
+            }
+            $user_id = $conn->insert_id;
+            
+            if ($data['role'] === 'stagiaire') {
+                $sql_role = "INSERT INTO stagiaire (id_utilisateur, filiere, niveau, date_debut, date_fin) 
+                             VALUES (?, ?, ?, ?, ?)";
+                $stmt_role = $conn->prepare($sql_role);
+                $stmt_role->bind_param("issss", $user_id, $data['filiere'], $data['niveau'], $data['date_debut'], $data['date_fin']);
+                $stmt_role->execute();
+            } elseif ($data['role'] === 'encadreur') {
+                $sql_role = "INSERT INTO encadreur (id_utilisateur, poste, service) VALUES (?, ?, ?)";
+                $stmt_role = $conn->prepare($sql_role);
+                $stmt_role->bind_param("iss", $user_id, $data['poste'], $data['service']);
+                $stmt_role->execute();
+            }
+
+            $conn->commit();
+            return true;
+        } catch (Exception $e) {
+            $conn->rollback();
+            error_log('Erreur création utilisateur: ' . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Change le statut d'un utilisateur (actif/bloque).
+     */
+    public static function changerStatut($user_id, $statut)
+    {
+        $conn = Database::getConnection();
+        $sql = "UPDATE utilisateurs SET statut = ? WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("si", $statut, $user_id);
+        return $stmt->execute();
+    }
+    
+    /**
+     * Affecte un stagiaire à un encadreur.
+     */
+    public static function affecterEncadreur($stagiaire_id, $encadreur_id)
+    {
+        $conn = Database::getConnection();
+        $enc_id = empty($encadreur_id) ? null : (int)$encadreur_id;
+        
+        $sql = "UPDATE stagiaire SET encadreur_id = ? WHERE id_utilisateur = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ii", $enc_id, $stagiaire_id);
+        return $stmt->execute();
+    }
+    
+    /**
+     * Récupère la liste de tous les encadreurs actifs.
+     */
+    public static function listerEncadreurs()
+    {
+        $conn = Database::getConnection();
+        $sql = "SELECT id, prenom, nom FROM utilisateurs WHERE role = 'encadreur' AND statut = 'actif' ORDER BY nom, prenom";
+        return $conn->query($sql);
+    }
+
+        /**
+     * Récupère toutes les informations d'un utilisateur pour la modification.
+     */
+    public static function getById($user_id) {
+        $conn = Database::getConnection();
+        $sql = "SELECT 
+                    u.*,
+                    s.filiere, s.niveau, s.date_debut, s.date_fin,
+                    e.poste, e.service
+                FROM utilisateurs u
+                LEFT JOIN stagiaire s ON u.id = s.id_utilisateur
+                LEFT JOIN encadreur e ON u.id = e.id_utilisateur
+                WHERE u.id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        return $stmt->get_result()->fetch_assoc();
+    }
+
+    /**
+     * Met à jour les informations d'un utilisateur.
+     */
+    public static function modifier($data) {
+        $conn = Database::getConnection();
+        $conn->begin_transaction();
+        try {
+            // Mise à jour de la table 'utilisateurs'
+            $sql_user = "UPDATE utilisateurs SET nom = ?, prenom = ?, email = ?, sex = ?, telephone = ? WHERE id = ?";
+            $stmt_user = $conn->prepare($sql_user);
+            $stmt_user->bind_param("sssssi", $data['nom'], $data['prenom'], $data['email'], $data['sex'], $data['telephone'], $data['user_id']);
+            $stmt_user->execute();
+            
+            // Mise à jour de la table de rôle spécifique
+            if ($data['role'] === 'stagiaire') {
+                $sql_role = "UPDATE stagiaire SET filiere = ?, niveau = ?, date_debut = ?, date_fin = ? WHERE id_utilisateur = ?";
+                $stmt_role = $conn->prepare($sql_role);
+                $stmt_role->bind_param("ssssi", $data['filiere'], $data['niveau'], $data['date_debut'], $data['date_fin'], $data['user_id']);
+                $stmt_role->execute();
+            } elseif ($data['role'] === 'encadreur') {
+                $sql_role = "UPDATE encadreur SET poste = ?, service = ? WHERE id_utilisateur = ?";
+                $stmt_role = $conn->prepare($sql_role);
+                $stmt_role->bind_param("ssi", $data['poste'], $data['service'], $data['user_id']);
+                $stmt_role->execute();
+            }
+            
+            // Si un nouveau mot de passe est fourni, on le met à jour
+            if (!empty($data['password'])) {
+                $sql_pass = "UPDATE utilisateurs SET password = ? WHERE id = ?";
+                $stmt_pass = $conn->prepare($sql_pass);
+                $stmt_pass->bind_param("si", $data['password'], $data['user_id']); // Mot de passe en clair
+                $stmt_pass->execute();
+            }
+            
+            $conn->commit();
+            return true;
+        } catch (Exception $e) {
+            $conn->rollback();
+            return false;
+        }
+    }
+
+    /**
+     * Supprime un utilisateur.
+     */
+    public static function supprimer($user_id) {
+        $conn = Database::getConnection();
+        // La suppression en cascade (ON DELETE CASCADE) dans la BDD s'occupera des tables stagiaire/encadreur.
+        $sql = "DELETE FROM utilisateurs WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $user_id);
+        return $stmt->execute();
+    }
 }
+
 ?>

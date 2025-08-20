@@ -1694,3 +1694,156 @@ body {
     width: 100%;
     text-align: right;
 }
+/* ===================================================================
+==        STYLES POUR LA MODALE D'AFFICHAGE DES RAPPORTS         ==
+=================================================================== */
+
+.rapport-details-view {
+    padding: 1rem;
+}
+
+.rapport-details-view .rapport-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    padding: 1.5rem;
+    background-color: var(--background-color);
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.rapport-details-view .meta-item {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.rapport-details-view .meta-item strong {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-right: 0.5rem;
+}
+
+.rapport-details-view .status-badge {
+    color: #fff;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    text-transform: capitalize;
+}
+.rapport-details-view .status-en_attente,
+.rapport-details-view .status-en-attente { background-color: var(--info-color); }
+.rapport-details-view .status-validé { background-color: var(--success-color); }
+.rapport-details-view .status-rejeté { background-color: var(--accent-color); }
+
+.rapport-details-view hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 2rem 0;
+}
+
+.rapport-details-view h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.2rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.rapport-details-view .section-content {
+    line-height: 1.7;
+    color: var(--text-secondary);
+    padding-left: 1.75rem; /* Aligner avec le titre */
+    white-space: pre-line; /* Respecte les sauts de ligne */
+}
+
+.rapport-details-view .section-content.comment {
+    background-color: var(--warning-light);
+    border-left: 3px solid var(--warning-color);
+    padding: 1rem;
+    border-radius: 6px;
+    font-style: italic;
+    color: var(--text-primary);
+}
+/* Style pour la barre de recherche */
+.search-form {
+    display: contents; /* Pour ne pas perturber le layout flex de la toolbar */
+}
+
+.search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-box i.fa-search {
+    position: absolute;
+    left: 15px; /* Positionne l'icône à gauche */
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    pointer-events: none; /* Empêche l'icône de bloquer le clic sur l'input */
+}
+
+.search-box input[type="text"] {
+    width: 100%;
+    min-width: 250px;
+    padding: 10px 15px 10px 40px; /* Ajoute un padding à gauche pour faire de la place à l'icône */
+    border: 1px solid var(--border-color);
+    border-radius: 20px; /* Bords plus arrondis */
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.search-box input[type="text"]:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15);
+    outline: none;
+}
+
+/* ===================================================================
+==        STYLE CORRIGÉ ET PROFESSIONNEL POUR LA BARRE DE RECHERCHE    ==
+=================================================================== */
+
+.search-form {
+    display: contents; /* N'affecte pas le layout flex de son parent */
+}
+
+.search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-box i.fa-search {
+    position: absolute;
+    left: 15px; /* Positionne l'icône à gauche, à l'intérieur du champ */
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    opacity: 0.7;
+    pointer-events: none; /* Permet de cliquer "à travers" l'icône */
+}
+
+.search-box input[type="text"] {
+    width: 100%;
+    min-width: 250px;
+    padding: 12px 20px 12px 45px; /* Augmente le padding gauche pour faire de la place à l'icône */
+    border: 1px solid var(--border-color);
+    border-radius: 25px; /* Bords complètement arrondis pour un look moderne */
+    font-size: 0.95rem;
+    background-color: var(--surface-color);
+    transition: all 0.3s ease;
+}
+
+.search-box input[type="text"]::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.8;
+}
+
+.search-box input[type="text"]:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.15);
+    outline: none;
+}

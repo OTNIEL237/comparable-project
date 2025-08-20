@@ -81,14 +81,26 @@ class Theme {
     /**
      * Récupère tous les thèmes créés par un encadreur.
      */
-    public function getThemesByEncadreur($encadreur_id) {
+        // Dans classes/Theme.php
+    public function getThemesByEncadreur($encadreur_id, $recherche = '') {
         $sql = "SELECT t.*, u.prenom AS stagiaire_prenom, u.nom AS stagiaire_nom 
                 FROM themes t
                 LEFT JOIN utilisateurs u ON t.stagiaire_id = u.id
-                WHERE t.encadreur_id = ?
-                ORDER BY t.id DESC";
+                WHERE t.encadreur_id = ?";
+        
+        $params = [$encadreur_id];
+        $types = "i";
+
+        if (!empty($recherche)) {
+            $sql .= " AND (t.titre LIKE ? OR t.description LIKE ?)";
+            $searchTerm = "%{$recherche}%";
+            array_push($params, $searchTerm, $searchTerm);
+            $types .= "ss";
+        }
+        $sql .= " ORDER BY t.id DESC";
+        
         $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param("i", $encadreur_id);
+        $stmt->bind_param($types, ...$params);
         $stmt->execute();
         return $stmt->get_result();
     }

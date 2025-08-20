@@ -31,6 +31,25 @@ function initializeDashboard() {
         }
     });
 }
+document.addEventListener('DOMContentLoaded', function() {
+    initializeDashboard();
+    setupEventListeners();
+
+    // NOUVEAU BLOC POUR ACTIVER SELECT2
+    // On vérifie si l'élément existe avant d'essayer de l'initialiser
+    const stagiaireSelect = document.getElementById('stagiaire-select-presence');
+    if (stagiaireSelect) {
+        // La bibliothèque Select2 est chargée via le CDN
+        // On attend que JQuery soit prêt (Select2 en dépend)
+        $(document).ready(function() {
+            $('#stagiaire-select-presence').select2({
+                placeholder: "Rechercher ou sélectionner un stagiaire",
+                allowClear: true, // Permet de vider la sélection
+                language: "fr"    // Pour la traduction des messages
+            });
+        });
+    }
+});
 
 /**
  * Met en place tous les écouteurs d'événements pour les formulaires et les actions globales.
@@ -448,4 +467,72 @@ function afficherNotification(message, type = 'info') {
     notification.innerHTML = `<i class="${icon}"></i><span>${message}</span><button onclick="this.parentElement.remove()">&times;</button>`;
     container.appendChild(notification);
     setTimeout(() => notification.remove(), 5000);
+}
+
+async function voirRapport(rapportId) {
+    const modalBody = document.getElementById('rapportModalBody');
+    const modalTitle = document.getElementById('rapportModalTitle');
+    const modalFooter = document.getElementById('rapportModalFooter');
+
+    // Afficher un spinner de chargement
+    modalBody.innerHTML = '<div class="loading-spinner"></div>';
+    modalTitle.textContent = 'Chargement du rapport...';
+    ouvrirModal('modalVoirRapport');
+
+    const formData = new FormData();
+    formData.append('action', 'get_rapport_details');
+    formData.append('rapport_id', rapportId);
+
+    try {
+        const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        const result = await response.json();
+
+        if (result.success) {
+            const rapport = result.data;
+            
+            modalTitle.textContent = rapport.titre;
+
+            // Construire le contenu HTML
+            let contenuHtml = `
+                <div class="rapport-details-view">
+                    <div class="rapport-meta">
+                        <div class="meta-item"><strong>Stagiaire:</strong> ${rapport.stag_prenom} ${rapport.stag_nom}</div>
+                        <div class="meta-item"><strong>Date:</strong> ${new Date(rapport.date_soumission).toLocaleDateString('fr-FR')}</div>
+                        <div class="meta-item"><strong>Type:</strong> ${rapport.type}</div>
+                        <div class="meta-item"><strong>Statut:</strong> <span class="status-badge status-${rapport.statut.replace(' ', '_')}">${rapport.statut}</span></div>
+                    </div>
+                    <hr>
+                    <h4><i class="fas fa-tasks"></i> Activités Réalisées</h4>
+                    <p class="section-content">${rapport.activites.replace(/\n/g, '<br>')}</p>
+                    <hr>
+                    <h4><i class="fas fa-exclamation-triangle"></i> Difficultés Rencontrées</h4>
+                    <p class="section-content">${rapport.difficultes.replace(/\n/g, '<br>')}</p>
+                    <hr>
+                    <h4><i class="fas fa-lightbulb"></i> Solutions Apportées</h4>
+                    <p class="section-content">${rapport.solutions.replace(/\n/g, '<br>')}</p>
+            `;
+
+            if (rapport.commentaire_encadreur) {
+                contenuHtml += `
+                    <hr>
+                    <h4><i class="fas fa-comments"></i> Commentaire de l'Encadreur</h4>
+                    <p class="section-content comment">${rapport.commentaire_encadreur.replace(/\n/g, '<br>')}</p>
+                `;
+            }
+            
+            contenuHtml += `</div>`;
+            modalBody.innerHTML = contenuHtml;
+            
+            // Mettre à jour le pied de page avec les boutons
+            modalFooter.innerHTML = `
+                <button type="button" class="btn btn-secondary" onclick="fermerModal('modalVoirRapport')">Fermer</button>
+                <a href="telecharger_rapport.php?id=${rapport.id}" class="btn btn-primary"><i class="fas fa-download"></i> Télécharger PDF</a>
+            `;
+
+        } else {
+            modalBody.innerHTML = `<p class="text-danger">${result.message}</p>`;
+        }
+    } catch (error) {
+        modalBody.innerHTML = `<p class="text-danger">Impossible de charger les détails du rapport.</p>`;
+    }
 }

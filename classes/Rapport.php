@@ -322,7 +322,9 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
      * @param int $rapport_id ID du rapport
      * @return array|null Données du rapport ou null
      */
-    public function getRapportById($rapport_id) {
+    public static function getRapportById($rapport_id, $user_id, $role) {
+        $conn = Database::getConnection();
+        
         $sql = "SELECT r.*,
                        us.nom AS stag_nom, us.prenom AS stag_prenom,
                        ue.nom AS enc_nom, ue.prenom AS enc_prenom
@@ -330,28 +332,35 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
                 JOIN utilisateurs us ON r.stagiaire_id = us.id
                 LEFT JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur
                 LEFT JOIN utilisateurs ue ON s.encadreur_id = ue.id
-                WHERE r.id = ? AND r.stagiaire_id = ?";
-       
-        $stmt = $this->conn->prepare($sql);
-        if (!$stmt) {
-            error_log("Erreur préparation requête getRapportById: " . $this->conn->error);
-            return null;
+                WHERE r.id = ?";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $rapport_id);
+        $stmt->execute();
+        $rapport = $stmt->get_result()->fetch_assoc();
+
+        if (!$rapport) {
+            return null; // Le rapport n'existe pas
+        }
+
+        // Vérification des permissions
+        if ($role === 'stagiaire') {
+            // Un stagiaire ne peut voir que ses propres rapports
+            if ($rapport['stagiaire_id'] != $user_id) {
+                return null;
+            }
+        } elseif ($role === 'encadreur') {
+            // Un encadreur ne peut voir que les rapports de ses stagiaires
+            $sql_check = "SELECT COUNT(*) FROM stagiaire WHERE id_utilisateur = ? AND encadreur_id = ?";
+            $stmt_check = $conn->prepare($sql_check);
+            $stmt_check->bind_param("ii", $rapport['stagiaire_id'], $user_id);
+            $stmt_check->execute();
+            if ($stmt_check->get_result()->fetch_row()[0] == 0) {
+                return null; // Ce n'est pas son stagiaire
+            }
         }
         
-        $stmt->bind_param("ii", $rapport_id, $this->stagiaire_id);
-        
-        if (!$stmt->execute()) {
-            error_log("Erreur exécution requête getRapportById: " . $stmt->error);
-            return null;
-        }
-        
-        $result = $stmt->get_result();
-       
-        if ($result->num_rows > 0) {
-            return $result->fetch_assoc();
-        }
-       
-        return null;
+        return $rapport;
     }
 
     /**

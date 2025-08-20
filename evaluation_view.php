@@ -63,29 +63,4 @@ $note_globale = $evaluation_data['note_globale'] ?? 0;
         </div>
     </div>
 
-    <!-- Le formulaire de commentaires n'est visible que par l'encadreur -->
-    <?php if (isset($role) && $role === 'encadreur'): ?>
-        <div class="evaluation-section">
-            <form id="formEvaluation" method="POST">
-                <!-- Ces champs cachés sont maintenant gérés par le contrôleur (dashboardEncadreur.php) -->
-                <input type="hidden" name="action" value="sauvegarder_evaluation">
-                <input type="hidden" name="stagiaire_id" value="<?php echo $stagiaire_id_eval; ?>">
-                <input type="hidden" name="evaluation_id" value="<?php echo $evaluation_data['id'] ?? ''; ?>">
-                <input type="hidden" name="encadreur_id" value="<?php echo $user_id; ?>">
-                
-                <div class="section-header">
-                    <i class="fas fa-pen-alt"></i>
-                    <h3>Commentaires de l'Encadreur</h3>
-                </div>
-                <textarea name="commentaires" placeholder="Points forts, axes d'amélioration..."><?php echo htmlspecialchars($evaluation_data['commentaires'] ?? ''); ?></textarea>
-                
-                <div class="evaluation-footer">
-                    <button type="submit" class="btn btn-primary btn-lg">
-                        <i class="fas fa-save"></i>
-                        Enregistrer les Commentaires
-                    </button>
-                </div>
-            </form>
-        </div>
-    <?php endif; ?>
-</div>
+    

@@ -1847,3 +1847,28 @@ body {
     box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.15);
     outline: none;
 }
+/* CSS à ajouter pour le bouton de suppression */
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+.message-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.btn-delete-message {
+    background: none;
+    border: none;
+    color: #95a5a6;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+.btn-delete-message:hover {
+    color: #e74c3c;
+    background-color: #fbecec;
+}

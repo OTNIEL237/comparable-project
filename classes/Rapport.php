@@ -450,42 +450,56 @@ $sql = "SELECT r.*,
         return true;
     }
 
-        /**
-     * NOUVELLE FONCTION ADMIN : Récupère tous les rapports du système.
-     */
-    public static function getTousLesRapports($filtre = 'all', $recherche = '') {
+    public static function listerTousLesRapports($filtre = 'all', $recherche = '') {
         $conn = Database::getConnection();
-        $sql = "SELECT r.*, us.nom AS stag_nom, us.prenom AS stag_prenom
-                FROM rapports r
-                JOIN utilisateurs us ON r.stagiaire_id = us.id";
-        
+       
+        // La requête sélectionne aussi le nom de l'encadreur
+        $sql = "SELECT r.*, 
+                   us.nom AS stag_nom, us.prenom AS stag_prenom,
+                   ue.nom AS enc_nom, ue.prenom AS enc_prenom
+            FROM rapports r
+            JOIN utilisateurs us ON r.stagiaire_id = us.id
+            LEFT JOIN stagiaire s ON us.id = s.id_utilisateur
+            LEFT JOIN utilisateurs ue ON s.encadreur_id = ue.id
+            WHERE 1=1"; // Commence par une condition toujours vraie pour faciliter l'ajout des filtres
+       
         $params = [];
         $types = "";
-        $where_clauses = [];
-
+       
+        // Appliquer le filtre par statut
         if ($filtre !== 'all' && in_array($filtre, ['en_attente', 'validé', 'rejeté'])) {
-            $where_clauses[] = "r.statut = ?";
+            $sql .= " AND r.statut = ?";
             $params[] = str_replace('_', ' ', $filtre);
             $types .= "s";
         }
+       
+        // Appliquer la recherche (inclut le nom du stagiaire ET de l'encadreur)
         if (!empty($recherche)) {
-            $where_clauses[] = "(r.titre LIKE ? OR us.nom LIKE ? OR us.prenom LIKE ?)";
-            $searchTerm = "%{$recherche}%";
-            array_push($params, $searchTerm, $searchTerm, $searchTerm);
-            $types .= "sss";
+            $sql .= " AND (r.titre LIKE ? OR us.nom LIKE ? OR us.prenom LIKE ? OR ue.nom LIKE ? OR ue.prenom LIKE ?)";
+            $searchTerm = "%$recherche%";
+            array_push($params, $searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm);
+            $types .= "sssss";
         }
-
-        if (!empty($where_clauses)) {
-            $sql .= " WHERE " . implode(' AND ', $where_clauses);
-        }
+       
         $sql .= " ORDER BY r.date_soumission DESC";
-        
+       
         $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log("Erreur préparation requête listerTousLesRapports: " . $conn->error);
+            return new mysqli_result($conn);
+        }
+        
         if (!empty($params)) {
             $stmt->bind_param($types, ...$params);
         }
-        $stmt->execute();
+        
+        if (!$stmt->execute()) {
+            error_log("Erreur exécution requête listerTousLesRapports: " . $stmt->error);
+            return new mysqli_result($conn);
+        }
+        
         return $stmt->get_result();
     }
-    
+
+
 }

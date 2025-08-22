@@ -166,7 +166,21 @@ async function ouvrirMessage(messageId) {
         afficherNotification("Impossible de charger le message.", "error");
     }
 }
+async function supprimerMessage(event, messageId) {
+    // Empêche l'ouverture du message lors du clic sur le bouton supprimer
+    event.stopPropagation(); 
 
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce message définitivement ? Cette action est irréversible.')) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'supprimer_message');
+    formData.append('message_id', messageId);
+
+    // On réutilise la fonction générique pour soumettre la requête
+    await soumettreFormulaire(formData, 'supprimer_message', 'Message supprimé avec succès !');
+}
 
 // ===================================================================
 // ==          GESTION DES THÈMES ET STAGIAIRES                     ==

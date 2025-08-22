@@ -115,4 +115,39 @@ class Theme {
         $stmt->execute();
         return $stmt->get_result()->fetch_assoc();
     }
+
+    public static function listerTousLesThemes($recherche = '') {
+        $conn = Database::getConnection();
+        
+        $sql = "SELECT 
+                    th.*, 
+                    ue.prenom AS encadreur_prenom, ue.nom AS encadreur_nom,
+                    us.prenom AS stagiaire_prenom, us.nom AS stagiaire_nom
+                FROM themes th
+                JOIN utilisateurs ue ON th.encadreur_id = ue.id
+                LEFT JOIN utilisateurs us ON th.stagiaire_id = us.id
+                WHERE 1=1";
+
+        $params = [];
+        $types = "";
+
+        if (!empty($recherche)) {
+            // La recherche se fait sur le titre, la filière, ou le nom de l'encadreur
+            $sql .= " AND (th.titre LIKE ? OR th.filiere LIKE ? OR ue.prenom LIKE ? OR ue.nom LIKE ?)";
+            $searchTerm = "%" . $recherche . "%";
+            array_push($params, $searchTerm, $searchTerm, $searchTerm, $searchTerm);
+            $types .= "ssss";
+        }
+        
+        $sql .= " ORDER BY th.titre ASC";
+        
+        $stmt = $conn->prepare($sql);
+        
+        if (!empty($recherche)) {
+            $stmt->bind_param($types, ...$params);
+        }
+        
+        $stmt->execute();
+        return $stmt->get_result();
+    }
 }

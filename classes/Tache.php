@@ -137,8 +137,8 @@ class Tache {
     /**
      * Récupère les tâches pour un encadreur, avec recherche
      */
-    public function getTachesPourEncadreur($encadreur_id, $recherche = '') {
-        $sql = "SELECT t.*, u.prenom, u.nom 
+     public function getTachesPourEncadreur($encadreur_id, $recherche = '') {
+        $sql = "SELECT t.*, u.prenom AS stagiaire_prenom, u.nom AS stagiaire_nom 
                 FROM taches t
                 JOIN utilisateurs u ON t.stagiaire_id = u.id
                 WHERE t.encadreur_id = ?";
@@ -228,28 +228,42 @@ class Tache {
         $stmt->execute();
     }
 
-        /**
-     * NOUVELLE FONCTION ADMIN : Récupère toutes les tâches du système.
-     */
-    public static function getToutesLesTaches($recherche = '') {
+     public static function listerToutesLesTaches($recherche = '') {
         $conn = Database::getConnection();
-        $sql = "SELECT t.*, u_stag.prenom, u_stag.nom, u_enc.prenom as enc_prenom, u_enc.nom as enc_nom
-                FROM taches t
-                JOIN utilisateurs u_stag ON t.stagiaire_id = u_stag.id
-                JOIN utilisateurs u_enc ON t.encadreur_id = u_enc.id";
         
+        $sql = "SELECT t.*, 
+                       us.prenom AS stagiaire_prenom, us.nom AS stagiaire_nom,
+                       ue.prenom AS encadreur_prenom, ue.nom AS encadreur_nom
+                FROM taches t
+                JOIN utilisateurs us ON t.stagiaire_id = us.id
+                LEFT JOIN utilisateurs ue ON t.encadreur_id = ue.id
+                WHERE 1=1";
+
+        $params = [];
+        $types = "";
+
         if (!empty($recherche)) {
-            $sql .= " WHERE (t.titre LIKE ? OR u_stag.prenom LIKE ? OR u_stag.nom LIKE ?)";
+            $sql .= " AND (t.titre LIKE ? OR us.prenom LIKE ? OR us.nom LIKE ? OR ue.prenom LIKE ? OR ue.nom LIKE ?)";
+            $searchTerm = "%" . $recherche . "%";
+            array_push($params, $searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm);
+            $types .= "sssss";
         }
+        
         $sql .= " ORDER BY t.date_echeance DESC";
         
         $stmt = $conn->prepare($sql);
+        
         if (!empty($recherche)) {
-            $searchTerm = "%{$recherche}%";
-            $stmt->bind_param("sss", $searchTerm, $searchTerm, $searchTerm);
+            $stmt->bind_param($types, ...$params);
         }
+        
         $stmt->execute();
         return $stmt->get_result();
     }
+
+    
+
+
+
 }
 ?>

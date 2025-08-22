@@ -4,6 +4,9 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
     gap: 1.5rem;
+    justify-items: start; /* Align cards to the left */
+    justify-content: start; /* Align grid to the left */
+    max-width: 1200px;      /* Optional: limit grid width */
 }
 
 .theme-card {
@@ -118,3 +121,4 @@
 .theme-details-filiere { font-size: 1.1rem; margin-bottom: 1rem; }
 .theme-details-description { line-height: 1.6; margin: 1rem 0; }
 .theme-details-dates { display: flex; justify-content: space-between; margin-top: 1rem; font-size: 0.9rem; }
+

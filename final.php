@@ -1,6 +1,10 @@
 <?php
 /**
- * Dashboard principal pour les encadreurs et administrateurs
+ * =================================================================
+ * == DASHBOARD ADMINISTRATEUR FUSIONNÉ (Encadreur + Admin) ==
+ * =================================================================
+ * Ce dashboard combine les fonctionnalités de l'encadreur avec
+ * les privilèges de gestion de l'administrateur.
  */
 session_start();
 require_once 'classes/Database.php';
@@ -9,11 +13,11 @@ require_once 'classes/Rapport.php';
 require_once 'classes/Tache.php';
 require_once 'classes/Theme.php';
 require_once 'classes/Evaluation.php';
-require_once 'classes/Theme.php';
 require_once 'classes/Presence.php';
+require_once 'classes/Utilisateur.php'; // AJOUTÉ : Pour la gestion des utilisateurs
 
-// Vérifier si l'utilisateur est connecté et est un encadreur ou admin
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['encadreur', 'admin'])) {
+// MODIFIÉ : Vérifier si l'utilisateur est bien un administrateur
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header('Location: login.php');
     exit();
 }
@@ -25,27 +29,26 @@ $role = $_SESSION['role'];
 // Initialiser les classes
 $message = new Message($user_id);
 $tache = new Tache();
-// Récupérer les statistiques pour le dashboard
+$conn = Database::getConnection();
+
+// MODIFIÉ : Statistiques globales pour l'administrateur
+$stats_sql = "SELECT 
+    (SELECT COUNT(*) FROM stagiaire) as nb_stagiaires,
+    (SELECT COUNT(*) FROM encadreur) as nb_encadreurs,
+    (SELECT COUNT(*) FROM rapports) as nb_rapports_total,
+    (SELECT COUNT(*) FROM rapports WHERE statut = 'en_attente') as nb_rapports_attente";
+$stats = $conn->query($stats_sql)->fetch_assoc();
 $nb_messages_non_lus = $message->compterNonLus();
 
-// Statistiques spécifiques aux encadreurs
-$conn = Database::getConnection();
-$stats_sql = "SELECT 
-    (SELECT COUNT(*) FROM stagiaire WHERE encadreur_id = ?) as nb_stagiaires,
-    (SELECT COUNT(*) FROM rapports r JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur WHERE s.encadreur_id = ?) as nb_rapports_total,
-    (SELECT COUNT(*) FROM rapports r JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur WHERE s.encadreur_id = ? AND r.statut = 'en_attente') as nb_rapports_attente";
-$stats_stmt = $conn->prepare($stats_sql);
-$stats_stmt->bind_param("iii", $user_id, $user_id, $user_id);
-$stats_stmt->execute();
-$stats = $stats_stmt->get_result()->fetch_assoc();
 
-// Traitement des actions AJAX
-
-
+// =================================================================
+// ==      FUSION DES TRAITEMENTS AJAX (Encadreur + Admin)      ==
+// =================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
     
     switch ($_POST['action']) {
+        // --- ACTIONS DE L'ENCADREUR (conservées pour l'admin) ---
         case 'envoyer_message':
             $destinataire_id = $_POST['destinataire_id'];
             $sujet = $_POST['sujet'];
@@ -55,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $resultat = $message->envoyer($destinataire_id, $sujet, $contenu, $fichier);
             echo json_encode(['success' => $resultat]);
             exit();
-            
+
         case 'valider_rapport':
             $rapport_id = $_POST['rapport_id'];
             $statut = $_POST['statut'];
@@ -64,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $resultat = Rapport::changerStatutRapport($rapport_id, $statut, $commentaire);
             echo json_encode(['success' => $resultat]);
             exit();
-            
+        
         case 'marquer_lu':
             $message_id = $_POST['message_id'];
             $resultat = $message->marquerCommeLu($message_id);
@@ -188,14 +191,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             echo json_encode(['success' => $resultat]);
             exit();
 
+        // --- AJOUT : ACTIONS SPÉCIFIQUES À L'ADMINISTRATEUR ---
+        case 'creer_utilisateur':
+            $resultat = Utilisateur::creer($_POST);
+            echo json_encode(['success' => $resultat]);
+            exit();
+        
+        case 'changer_statut':
+            $resultat = Utilisateur::changerStatut((int)$_POST['user_id'], $_POST['statut']);
+            echo json_encode(['success' => $resultat]);
+            exit();
 
+        case 'affecter_encadreur':
+            $resultat = Utilisateur::affecterEncadreur((int)$_POST['stagiaire_id'], (int)$_POST['encadreur_id']);
+            echo json_encode(['success' => $resultat]);
+            exit();
+
+        case 'get_utilisateur_details':
+            $details = Utilisateur::getById((int)$_POST['user_id']);
+            echo json_encode(['success' => !!$details, 'data' => $details]);
+            exit();
+
+        case 'modifier_utilisateur':
+            $resultat = Utilisateur::modifier($_POST);
+            echo json_encode(['success' => $resultat]);
+            exit();
+
+        case 'supprimer_utilisateur':
+            $resultat = Utilisateur::supprimer((int)$_POST['user_id']);
+            echo json_encode(['success' => $resultat]);
+            exit();
     }
 }
 
-
-
-
-// Récupérer les données selon l'onglet actif
+// =================================================================
+// ==   FUSION DE LA RÉCUPÉRATION DES DONNÉES (Encadreur + Admin) ==
+// =================================================================
 $onglet_actif = isset($_GET['tab']) ? $_GET['tab'] : 'dashboard';
 $filtre = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 $recherche = isset($_GET['search']) ? $_GET['search'] : '';
@@ -205,10 +236,13 @@ switch ($onglet_actif) {
         $messages = $message->getMessages($filtre, $recherche);
         $utilisateurs = $message->getUtilisateursDisponibles();
         break;
+    
     case 'rapports':
-        $rapports = Rapport::getRapportsEncadreur($user_id, $filtre, $recherche);
+        // MODIFIÉ : L'admin voit TOUS les rapports
+        $rapports = Rapport::getTousLesRapports($filtre, $recherche);
         break;
-     case 'gestion-stagiaires':
+    
+    case 'gestion-stagiaires':
         $sql = "SELECT u.id, u.nom, u.prenom, u.email, s.date_debut, s.date_fin 
                 FROM utilisateurs u 
                 JOIN stagiaire s ON u.id = s.id_utilisateur 
@@ -239,7 +273,7 @@ switch ($onglet_actif) {
         $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
         // Récupérer les tâches
-        $taches_result = $tache->getTachesPourEncadreur($user_id, $recherche);
+       $taches_result = Tache::getToutesLesTaches($recherche);
         $taches_par_jour = [];
         while($t = $taches_result->fetch_assoc()) {
             $echeance = $t['date_echeance'];
@@ -253,19 +287,15 @@ switch ($onglet_actif) {
 
     case 'presences':
         // Charger la liste des stagiaires pour le sélecteur
-        $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur WHERE s.encadreur_id = ?";
+        $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u WHERE u.role = 'stagiaire'";
         $stmt = $conn->prepare($stagiaires_sql);
         $stmt->bind_param("i", $user_id);
         $stmt->execute();
         $stagiaires_encadreur = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         break;
 
-    case 'profil':
-        // Récupérer les informations détaillées de l'encadreur
-        $profil_sql = "SELECT u.*, e.poste, e.service 
-                        FROM utilisateurs u 
-                        JOIN encadreur e ON u.id = e.id_utilisateur 
-                        WHERE u.id = ?";
+    case 'profil': // Le profil de l'admin
+        $profil_sql = "SELECT * FROM utilisateurs WHERE id = ?";
         $profil_stmt = $conn->prepare($profil_sql);
         $profil_stmt->bind_param("i", $user_id);
         $profil_stmt->execute();
@@ -354,8 +384,15 @@ switch ($onglet_actif) {
         }
         break;
 
-}
+    
 
+    // AJOUTÉ : Onglet de gestion des utilisateurs
+    case 'gestion-utilisateurs':
+        $liste_utilisateurs = Utilisateur::listerTous($recherche);
+        $liste_encadreurs = Utilisateur::listerEncadreurs();
+        break;
+
+}
 ?>
 
 <!DOCTYPE html>
@@ -363,97 +400,65 @@ switch ($onglet_actif) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard <?php echo ucfirst($role); ?> - <?php echo htmlspecialchars($nom_complet); ?></title>
+    <!-- MODIFIÉ : Titre de la page -->
+    <title>Dashboard Administrateur - <?php echo htmlspecialchars($nom_complet); ?></title>
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-  
-    </style>
+    <!-- AJOUTÉ : S'assurer que tous les CSS sont inclus -->
+    <link rel="stylesheet" href="css/dashboardEncadreur.css">
     <link rel="stylesheet" href="css/taches.css">
     <link rel="stylesheet" href="css/themes.css">
     <link rel="stylesheet" href="css/evaluation.css">
     <link rel="stylesheet" href="css/presence.css">
-    <link rel="stylesheet" href="css/dashboardEncadreur.css">
     <link rel="stylesheet" href="css/form.css">
+    <link rel="stylesheet" href="css/gestion_utilisateurs.css"> <!-- CSS de l'admin -->
 </head>
 <body>
+    <!-- ================================================================= -->
+    <!-- ==      FUSION DE LA BARRE LATÉRALE (Sidebar)                == -->
+    <!-- ================================================================= -->
     <nav class="sidebar">
         <div class="sidebar-header">
             <div class="logo">
-                <i class="fas fa-user-tie"></i>
+                <i class="fas fa-user-shield"></i>
             </div>
             <h3><?php echo ucfirst($role); ?></h3>
         </div>
         
         <ul class="sidebar-menu">
+            <!-- Onglet Dashboard -->
             <li class="<?php echo $onglet_actif === 'dashboard' ? 'active' : ''; ?>">
-                <a href="?tab=dashboard">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>Dashboard</span>
-                </a>
+                <a href="?tab=dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a>
             </li>
+
+            <!-- AJOUTÉ : Onglet Gestion Utilisateurs (placé en haut pour l'admin) -->
+            <li class="<?php echo $onglet_actif === 'gestion-utilisateurs' ? 'active' : ''; ?>">
+                <a href="?tab=gestion-utilisateurs"><i class="fas fa-users-cog"></i><span>Utilisateurs</span></a>
+            </li>
+
+            <!-- Onglets de l'Encadreur -->
             <li class="<?php echo $onglet_actif === 'messagerie' ? 'active' : ''; ?>">
                 <a href="?tab=messagerie">
-                    <i class="fas fa-envelope"></i>
-                    <span>Messagerie</span>
-                    <?php if ($nb_messages_non_lus > 0): ?>
-                        <span class="badge"><?php echo $nb_messages_non_lus; ?></span>
-                    <?php endif; ?>
+                    <i class="fas fa-envelope"></i><span>Messagerie</span>
+                    <?php if ($nb_messages_non_lus > 0): ?><span class="badge"><?php echo $nb_messages_non_lus; ?></span><?php endif; ?>
                 </a>
             </li>
             <li class="<?php echo $onglet_actif === 'rapports' ? 'active' : ''; ?>">
                 <a href="?tab=rapports">
-                    <i class="fas fa-file-alt"></i>
-                    <span>Rapports</span>
-                    <?php if ($stats['nb_rapports_attente'] > 0): ?>
-                        <span class="badge"><?php echo $stats['nb_rapports_attente']; ?></span>
-                    <?php endif; ?>
+                    <i class="fas fa-file-alt"></i><span>Rapports</span>
+                     <?php if ($stats['nb_rapports_attente'] > 0): ?><span class="badge"><?php echo $stats['nb_rapports_attente']; ?></span><?php endif; ?>
                 </a>
             </li>
-            <li class="<?php echo $onglet_actif === 'taches' ? 'active' : ''; ?>">
-                <a href="?tab=taches">
-                    <i class="fas fa-tasks"></i>
-                    <span>Tâches</span>
-                </a>
-            </li>
-            <li class="<?php echo $onglet_actif === 'presences' ? 'active' : ''; ?>">
-                <a href="?tab=presences">
-                    <i class="fas fa-calendar-check"></i>
-                    <span>Présences Stagiaires</span>
-                </a>
-            </li>
-            <li class="<?php echo $onglet_actif === 'profil' ? 'active' : ''; ?>">
-                <a href="?tab=profil">
-                    <i class="fas fa-user"></i>
-                    <span>Profil</span>
-                </a>
-            </li>
-            <li class="<?php echo $onglet_actif === 'gestion-theme' ? 'active' : ''; ?>">
-                <a href="?tab=gestion-theme">
-                    <i class="fas fa-lightbulb"></i> <!-- Icône changée pour être plus pertinente -->
-                    <span>Gestion Thèmes</span>
-                </a>
-            </li>
-            <li class="<?php echo $onglet_actif === 'gestion-stagiaires' ? 'active' : ''; ?>">
-                <a href="?tab=gestion-stagiaires">
-                    <i class="fas fa-users"></i>
-                    <span>Gestion Stagiaires</span>
-                </a>
-            </li>
-
-        <li class="<?php echo $onglet_actif === 'evaluation' ? 'active' : ''; ?>">
-            <a href="?tab=evaluation">
-                <i class="fas fa-chart-bar"></i>
-                <span>Évaluations</span>
-            </a>
-        </li>    
+            <li class="<?php echo $onglet_actif === 'taches' ? 'active' : ''; ?>"><a href="?tab=taches"><i class="fas fa-tasks"></i><span>Tâches</span></a></li>
+            <li class="<?php echo $onglet_actif === 'presences' ? 'active' : ''; ?>"><a href="?tab=presences"><i class="fas fa-calendar-check"></i><span>Présences</span></a></li>
+            <li class="<?php echo $onglet_actif === 'gestion-theme' ? 'active' : ''; ?>"><a href="?tab=gestion-theme"><i class="fas fa-lightbulb"></i><span>Thèmes</span></a></li>
+            <li class="<?php echo $onglet_actif === 'gestion-stagiaires' ? 'active' : ''; ?>"><a href="?tab=gestion-stagiaires"><i class="fas fa-users"></i><span>Stagiaires</span></a></li>
+            <li class="<?php echo $onglet_actif === 'evaluation' ? 'active' : ''; ?>"><a href="?tab=evaluation"><i class="fas fa-chart-bar"></i><span>Évaluations</span></a></li>
+            <li class="<?php echo $onglet_actif === 'profil' ? 'active' : ''; ?>"><a href="?tab=profil"><i class="fas fa-user"></i><span>Mon Profil</span></a></li>
         </ul>
         
         <div class="sidebar-footer">
-            <a href="logout.php" class="logout-btn">
-                <i class="fas fa-sign-out-alt"></i>
-                <span>Déconnexion</span>
-            </a>
+            <a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i><span>Déconnexion</span></a>
         </div>
     </nav>
 
@@ -476,48 +481,79 @@ switch ($onglet_actif) {
         </header>
 
         <div class="content-area">
+            <!-- ================================================================= -->
+            <!-- ==         FUSION DU CONTENU DES ONGLETS                     == -->
+            <!-- ================================================================= -->
+            
             <?php if ($onglet_actif === 'dashboard'): ?>
-                <div class="dashboard-content">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-users"></i>
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-info"><h3><?php echo $stats['nb_stagiaires']; ?></h3><p>Stagiaires au total</p></div></div>
+                    <div class="stat-card"><div class="stat-icon"><i class="fas fa-user-tie"></i></div><div class="stat-info"><h3><?php echo $stats['nb_encadreurs']; ?></h3><p>Encadreurs enregistrés</p></div></div>
+                    <div class="stat-card"><div class="stat-icon"><i class="fas fa-clock"></i></div><div class="stat-info"><h3><?php echo $stats['nb_rapports_attente']; ?></h3><p>Rapports en attente</p></div></div>
+                    <div class="stat-card"><div class="stat-icon"><i class="fas fa-envelope"></i></div><div class="stat-info"><h3><?php echo $nb_messages_non_lus; ?></h3><p>Messages non lus</p></div></div>
+                </div>
+
+            <?php elseif ($onglet_actif === 'gestion-utilisateurs'): 
+                $liste_utilisateurs = Utilisateur::listerTous($recherche);
+                $liste_encadreurs = Utilisateur::listerEncadreurs();
+            ?>
+                <div class="gestion-utilisateurs-content">
+                    <div class="toolbar">
+                       <button class="btn btn-primary" onclick="ouvrirModalCreerUtilisateur()">
+                            <i class="fas fa-user-plus"></i> Ajouter un utilisateur
+                       </button>
+                        <form method="GET" class="search-form">
+                            <input type="hidden" name="tab" value="gestion-utilisateurs">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" name="search" placeholder="Rechercher par nom, email..." value="<?php echo htmlspecialchars($recherche); ?>">
                             </div>
-                            <div class="stat-info">
-                                <h3><?php echo $stats['nb_stagiaires']; ?></h3>
-                                <p>Stagiaires encadrés</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-envelope"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3><?php echo $nb_messages_non_lus; ?></h3>
-                                <p>Messages non lus</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-file-alt"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3><?php echo $stats['nb_rapports_total']; ?></h3>
-                                <p>Rapports reçus</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-clock"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3><?php echo $stats['nb_rapports_attente']; ?></h3>
-                                <p>En attente de validation</p>
-                            </div>
-                        </div>
+                        </form>
                     </div>
 
-            <?php elseif ($onglet_actif === 'messagerie'): ?>
+                    <div class="users-list">
+                        <table>
+                            <thead><tr><th>Nom Complet</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Encadreur Assigné</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                <?php while($user_item = $liste_utilisateurs->fetch_assoc()): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($user_item['prenom'] . ' ' . $user_item['nom']); ?></td>
+                                    <td><?php echo htmlspecialchars($user_item['email']); ?></td>
+                                    <td><span class="role-badge role-<?php echo $user_item['role']; ?>"><?php echo ucfirst($user_item['role']); ?></span></td>
+                                    <td><span class="status-badge status-<?php echo $user_item['statut']; ?>"><?php echo ucfirst($user_item['statut']); ?></span></td>
+                                    <td>
+                                        <?php if($user_item['role'] === 'stagiaire') {
+                                            echo $user_item['enc_nom'] ? htmlspecialchars($user_item['enc_prenom'] . ' ' . $user_item['enc_nom']) : '<i>Non assigné</i>';
+                                        } else { echo 'N/A'; } ?>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <?php if($user_item['role'] === 'stagiaire'): ?>
+                                            <button class="btn btn-sm btn-info" title="Affecter un encadreur" onclick="ouvrirModalAffecter(<?php echo $user_item['id']; ?>, '<?php echo $user_item['encadreur_id']; ?>')"><i class="fas fa-user-tie"></i></button>
+                                        <?php endif; ?>
+                                        
+                                        <!-- NOUVEAU BOUTON MODIFIER -->
+                                        <button class="btn btn-sm btn-secondary" title="Modifier" onclick="ouvrirModalModifierUtilisateur(<?php echo $user_item['id']; ?>)"><i class="fas fa-edit"></i></button>
+                                        
+                                        <?php if($user_item['statut'] === 'actif'): ?>
+                                            <button class="btn btn-sm btn-warning" title="Bloquer" onclick="changerStatut(<?php echo $user_item['id']; ?>, 'bloque')"><i class="fas fa-lock"></i></button>
+                                        <?php else: ?>
+                                            <button class="btn btn-sm btn-success" title="Débloquer" onclick="changerStatut(<?php echo $user_item['id']; ?>, 'actif')"><i class="fas fa-unlock"></i></button>
+                                        <?php endif; ?>
+                                        
+                                        <!-- NOUVEAU BOUTON SUPPRIMER -->
+                                        <button class="btn btn-sm btn-danger" title="Supprimer" onclick="supprimerUtilisateur(<?php echo $user_item['id']; ?>)"><i class="fas fa-trash"></i></button>
+                                    </td>
+                                    
+                                </tr>
+                                <?php endwhile; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+                <?php elseif ($onglet_actif === 'messagerie'): ?>
                 <div class="messagerie-content">
                     <div class="toolbar">
                         <div class="toolbar-left">
@@ -1111,13 +1147,11 @@ switch ($onglet_actif) {
                 <?php endif; ?>
             </div>
         </div>
-        
-
     <?php endif; ?>
 <?php endif; ?>
     </main>
 
-    <!-- Modals -->
+<!-- Modals -->
     <div id="modalNouveauMessage" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1461,10 +1495,100 @@ switch ($onglet_actif) {
         </form>
     </div>
 </div>
+<!-- MODALS -->
+        <!-- ======================================================= -->
+    <!-- ============ MODALE UTILISATEUR (CRÉER/MODIFIER) ======== -->
+    <!-- ======================================================= -->
+    <div id="modalUtilisateur" class="modal">
+        <div class="modal-content large">
+            <form id="formUtilisateur">
+                <div class="modal-header">
+                    <h3 id="modalUtilisateurTitle">Créer un nouvel utilisateur</h3>
+                    <button type="button" class="modal-close" onclick="fermerModal('modalUtilisateur')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="user_action" name="action">
+                    <input type="hidden" id="user_id" name="user_id">
+
+                    <h4>Informations Communes</h4>
+                    <div class="form-grid">
+                        <div class="form-group"><label for="prenom">Prénom *</label><input type="text" name="prenom" required></div>
+                        <div class="form-group"><label for="nom">Nom *</label><input type="text" name="nom" required></div>
+                        <div class="form-group"><label for="email">Email *</label><input type="email" name="email" required></div>
+                        <div class="form-group"><label for="telephone">Téléphone</label><input type="tel" name="telephone"></div>
+                        <div class="form-group"><label for="sex">Sexe *</label><select name="sex" required><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
+                        <div class="form-group"><label for="password">Mot de passe *</label><input type="password" name="password" required></div>
+                    </div>
+
+                    <hr>
+
+                    <h4>Rôle et Informations Spécifiques</h4>
+                    <div class="form-group">
+                        <label for="role">Rôle de l'utilisateur *</label>
+                        <select name="role" id="roleSelect" onchange="toggleRoleFields()" required>
+                            <option value="">-- Sélectionner un rôle --</option>
+                            <option value="stagiaire">Stagiaire</option>
+                            <option value="encadreur">Encadreur</option>
+                        </select>
+                    </div>
+
+                    <!-- Champs spécifiques au Stagiaire -->
+                    <div id="stagiaireFields" class="role-fields" style="display: none;">
+                        <h5>Détails du Stagiaire</h5>
+                        <div class="form-grid">
+                            <div class="form-group"><label>Filière *</label><input type="text" name="filiere"></div>
+                            <div class="form-group"><label>Niveau d'études *</label><input type="text" name="niveau"></div>
+                            <div class="form-group"><label>Date de début *</label><input type="date" name="date_debut"></div>
+                            <div class="form-group"><label>Date de fin *</label><input type="date" name="date_fin"></div>
+                        </div>
+                    </div>
+
+                    <!-- Champs spécifiques à l'Encadreur -->
+                    <div id="encadreurFields" class="role-fields" style="display: none;">
+                        <h5>Détails de l'Encadreur</h5>
+                        <div class="form-grid">
+                            <div class="form-group"><label>Poste *</label><input type="text" name="poste"></div>
+                            <div class="form-group"><label>Service / Département *</label><input type="text" name="service"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fermerModal('modalUtilisateur')">Annuler</button>
+                    <button type="submit" class="btn btn-primary" id="modalUtilisateurSubmitBtn">Créer l'utilisateur</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="modalAffecterEncadreur" class="modal">
+        <div class="modal-content">
+            <form id="formAffecterEncadreur">
+                <div class="modal-header"><h3>Affecter un Encadreur</h3><button type="button" class="modal-close" onclick="fermerModal('modalAffecterEncadreur')">&times;</button></div>
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="affecter_encadreur">
+                    <input type="hidden" id="affecter_stagiaire_id" name="stagiaire_id">
+                    <div class="form-group">
+                        <label for="affecter_encadreur_id">Choisir un encadreur</label>
+                        <select id="affecter_encadreur_id" name="encadreur_id" class="filter-select">
+                            <option value="">-- Aucun --</option>
+                            <?php 
+                                $liste_encadreurs->data_seek(0);
+                                while($enc = $liste_encadreurs->fetch_assoc()): 
+                            ?>
+                                <option value="<?php echo $enc['id']; ?>"><?php echo htmlspecialchars($enc['prenom'] . ' ' . $enc['nom']); ?></option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="fermerModal('modalAffecterEncadreur')">Annuler</button><button type="submit" class="btn btn-primary">Enregistrer</button></div>
+            </form>
+        </div>
+    </div>
+    
     <div id="notifications"></div>
 
-    <script src="js/dashboardEncadreur.js"></script>
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- MODIFIÉ : Utiliser le nouveau script JS fusionné -->
+    <script src="js/dashboardAdmin.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </body>
 </html>

@@ -222,7 +222,7 @@ public function getMessageById($message_id) {
     }
 
     /**
-     * Supprimer un message (soft delete - marquer comme supprimé)
+     * Supprimer un message (suppression définitive)
      * @param int $message_id ID du message
      * @return bool Succès de la suppression
      */
@@ -234,14 +234,15 @@ public function getMessageById($message_id) {
         $stmt_check->execute();
         
         if ($stmt_check->get_result()->num_rows === 0) {
-            return false;
+            return false; // L'utilisateur n'est ni l'expéditeur ni le destinataire
         }
         
-        // Pour cette version, on peut ajouter une colonne 'supprime' ou vraiment supprimer
-        // Ici, on supprime vraiment le message et ses pièces jointes
         try {
             $this->conn->begin_transaction();
             
+            // On pourrait vouloir supprimer les fichiers physiques du serveur ici
+            // Pour l'instant, on se contente de la suppression en BDD
+
             // Supprimer les pièces jointes de la base
             $sql_del_pj = "DELETE FROM message_pieces_jointes WHERE message_id = ?";
             $stmt_del_pj = $this->conn->prepare($sql_del_pj);

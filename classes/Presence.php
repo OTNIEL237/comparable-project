@@ -207,10 +207,11 @@ class Presence
                 if (isset($presences[$date_str])) {
                     $p = $presences[$date_str];
                     $jour_data['statut'] = $p['statut_journee']; // 'present' ou 'retard'
-                    $jour_data['details'] = [
+                      $jour_data['details'] = [
                         'arrivee' => $p['heure_arrivee'],
                         'fin_pause' => $p['heure_fin_pause'],
-                        'depart' => $p['heure_depart']
+                        'depart' => $p['heure_depart'],
+                        'localisation' => $p['localisation_arrivee']
                     ];
                 } elseif ($jour_courant < $aujourdhui) {
                     $jour_data['statut'] = 'absent';

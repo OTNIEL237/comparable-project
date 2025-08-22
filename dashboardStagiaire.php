@@ -298,25 +298,30 @@ switch ($onglet_actif) {
             <?php if ($onglet_actif === 'dashboard'): ?>
                 <!-- DASHBOARD PRINCIPAL - Statistiques et actions rapides -->
                 <div class="dashboard-content">
+          
+
+                    
                     <?php if ($theme_stagiaire): ?>
-                    <div class="theme-stagiaire-card" onclick="ouvrirModalVoirTheme()">
-                        <div class="theme-stagiaire-icon">
-                            <i class="fas fa-lightbulb"></i>
-                        </div>
-                        <div class="theme-stagiaire-info">
-                            <h4>Mon Thème de Stage</h4>
-                            <h2><?php echo htmlspecialchars($theme_stagiaire['titre']); ?></h2>
-                            <p>
-                                Du <?php echo date('d/m/Y', strtotime($theme_stagiaire['date_debut'])); ?>
-                                au <?php echo date('d/m/Y', strtotime($theme_stagiaire['date_fin'])); ?>
-                            </p>
-                        </div>
-                        <div class="theme-stagiaire-action">
-                            <span>Voir les détails <i class="fas fa-arrow-right"></i></span>
+                    <div class="theme-stagiaire-container">
+                        <div class="theme-stagiaire-card" onclick="ouvrirModalVoirTheme()">
+                            <div class="theme-stagiaire-header">
+                                Mon Thème de Stage
+                            </div>
+                            <h2 class="theme-stagiaire-titre">
+                                <?php echo htmlspecialchars($theme_stagiaire['titre']); ?>
+                            </h2>
+                            <div class="theme-stagiaire-footer">
+                                <span class="theme-stagiaire-dates">
+                                    <i class="fas fa-calendar-alt"></i> Du <?php echo date('d/m/Y', strtotime($theme_stagiaire['date_debut'])); ?> au <?php echo date('d/m/Y', strtotime($theme_stagiaire['date_fin'])); ?>
+                                </span>
+                                <span class="theme-stagiaire-action">
+                                    Voir les détails <i class="fas fa-arrow-right"></i>
+                                </span>
+                            </div>
                         </div>
                     </div>
                     <?php endif; ?>
-                    <!-- Grille des statistiques -->
+
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-icon">
@@ -741,27 +746,55 @@ switch ($onglet_actif) {
             </div>
 
             <div class="semaine-grid">
-                <?php foreach ($semaine_data as $jour): ?>
-                    <div class="jour-card status-<?php echo $jour['statut']; ?>">
-                        <div class="jour-header">
-                            <h3><?php echo $jour['nom_jour']; ?></h3>
-                            <span><?php echo date('d/m', strtotime($jour['date'])); ?></span>
-                        </div>
-                        <div class="jour-body">
-                            <div class="jour-status-badge">
-                                <?php echo ucfirst(str_replace('_', ' de ', $jour['statut'])); ?>
-                            </div>
-                            <?php if ($jour['details']): ?>
-                                <div class="jour-details">
-                                    <p><strong>Arrivée :</strong> <?php echo $jour['details']['arrivee']; ?></p>
-                                    <p><strong>Fin Pause :</strong> <?php echo $jour['details']['fin_pause'] ?? 'N/A'; ?></p>
-                                    <p><strong>Départ :</strong> <?php echo $jour['details']['depart'] ?? 'N/A'; ?></p>
+                    <?php if (!empty($semaine_data)): ?>
+                        <?php foreach ($semaine_data as $jour): ?>
+                            <div class="jour-card status-<?php echo $jour['statut']; ?>">
+                                <div class="jour-header">
+                                    <h3><?php echo $jour['nom_jour']; ?></h3>
+                                    <span><?php echo date('d/m', strtotime($jour['date'])); ?></span>
                                 </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
+                                <div class="jour-body">
+                                    <div class="jour-status-icon">
+                                        <?php 
+                                            switch($jour['statut']) {
+                                                case 'present': echo '<i class="fas fa-check-circle"></i>'; break;
+                                                case 'retard': echo '<i class="fas fa-clock"></i>'; break;
+                                                case 'absent': echo '<i class="fas fa-times-circle"></i>'; break;
+                                                default: echo '<i class="fas fa-calendar-day"></i>'; break;
+                                            }
+                                        ?>
+                                    </div>
+                                    <div class="jour-status-text">
+                                        <?php echo ucfirst(str_replace('_', ' de ', $jour['statut'])); ?>
+                                    </div>
+                                    <?php if ($jour['details']): ?>
+                                        <div class="jour-details">
+                                            <div class="detail-item">
+                                                <i class="fas fa-sign-in-alt"></i>
+                                                <span><?php echo $jour['details']['arrivee']; ?></span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <i class="fas fa-sign-out-alt"></i>
+                                                <span><?php echo $jour['details']['depart'] ?? '-'; ?></span>
+                                            </div>
+                                            
+                                            <!-- NOUVELLE VERSION POUR AFFICHER LA LOCALISATION EN TEXTE -->
+                                            <?php if (!empty($jour['details']['localisation'])): ?>
+                                            <div class="detail-item">
+                                                <i class="fas fa-map-marker-alt"></i>
+                                                <span title="<?php echo htmlspecialchars($jour['details']['localisation']); ?>">
+                                                    <?php echo htmlspecialchars($jour['details']['localisation']); ?>
+                                                </span>
+                                            </div>
+                                            <?php endif; ?>
+                                        </div>
+                                        
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
              <a href="?tab=presences" class="btn btn-primary" style="margin-top: 1rem;">Semaine actuelle</a>
         </div>
     </div>

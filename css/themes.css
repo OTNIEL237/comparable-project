@@ -157,3 +157,175 @@
 #modalVoirTheme .rapport-details-view {
     padding: 1rem;
 }
+
+.theme-stagiaire-container {
+    margin-bottom: 2rem; /* Espace avant les cartes de statistiques */
+}
+
+/* --- La carte de thème "Waouh" --- */
+.theme-stagiaire-card {
+    background: linear-gradient(135deg, #4A90E2 0%, #0056b3 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(74, 144, 226, 0.3);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.theme-stagiaire-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(74, 144, 226, 0.4);
+}
+
+/* Icône décorative en arrière-plan */
+.theme-stagiaire-card::before {
+    content: '\f0eb'; /* Code unicode pour l'icône ampoule de Font Awesome */
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 100px;
+    color: rgba(255, 255, 255, 0.08);
+    transition: transform 0.4s ease;
+}
+
+.theme-stagiaire-card:hover::before {
+    transform: translateY(-50%) scale(1.1) rotate(5deg);
+}
+
+.theme-stagiaire-header {
+    font-size: 1rem;
+    font-weight: 500;
+    opacity: 0.8;
+    margin-bottom: 0.5rem;
+}
+
+.theme-stagiaire-titre {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin: 0 0 1.5rem 0;
+    line-height: 1.2;
+}
+
+.theme-stagiaire-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding-top: 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.theme-stagiaire-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: transform 0.2s;
+}
+.theme-stagiaire-action:hover {
+    transform: translateX(5px);
+}
+
+/* ===================================================================
+==    STYLES "WAOUH" POUR LA MODALE "VOIR THÈME" (STAGIAIRE)    ==
+=================================================================== */
+
+#modalVoirTheme .modal-content {
+    max-width: 600px;
+    border-radius: var(--radius-md, 12px);
+    border-top: 5px solid var(--primary-color, #007bff);
+    box-shadow: var(--shadow-strong, 0 8px 20px rgba(0, 0, 0, 0.1));
+    text-align: left;
+    animation: slideInUp 0.4s ease-out;
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+#modalVoirTheme .modal-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border-color, #dee2e6);
+}
+
+#modalVoirTheme .modal-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--text-primary, #212529);
+    font-weight: 600;
+}
+
+#modalVoirTheme .modal-close {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-secondary, #6c757d);
+    transition: transform 0.2s, color 0.2s;
+}
+
+#modalVoirTheme .modal-close:hover {
+    color: var(--danger-color, #dc3545);
+    transform: rotate(90deg);
+}
+
+#modalVoirTheme .modal-body {
+    padding: 2rem;
+}
+
+#modalVoirTheme .modal-body h4 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--primary-color, #007bff);
+    margin: 0 0 0.5rem 0;
+    line-height: 1.2;
+}
+
+#modalVoirTheme .theme-details-filiere {
+    font-size: 1rem;
+    color: var(--text-secondary, #6c757d);
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+}
+
+#modalVoirTheme .theme-details-description {
+    background-color: var(--primary-light, #f0f7ff);
+    padding: 1.25rem;
+    border-radius: 8px;
+    color: var(--text-primary, #212529);
+    line-height: 1.7;
+    margin: 1.5rem 0;
+    border-left: 3px solid var(--primary-color, #007bff);
+}
+
+#modalVoirTheme .theme-details-dates {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color, #dee2e6);
+    color: var(--text-secondary, #6c757d);
+    font-weight: 500;
+}
+
+#modalVoirTheme .theme-details-dates strong {
+    color: var(--text-primary, #212529);
+}
+
+#modalVoirTheme .modal-footer {
+    padding: 1rem 2rem;
+    background-color: var(--background-color, #f8f9fa);
+    text-align: right;
+    border-top: 1px solid var(--border-color, #dee2e6);
+}

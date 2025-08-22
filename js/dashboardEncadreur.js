@@ -88,8 +88,10 @@ document.addEventListener('DOMContentLoaded', function() {
         $(document).ready(function() {
             $('#stagiaire-select-presence').select2({
                 placeholder: "Rechercher ou sélectionner un stagiaire",
-                allowClear: true, // Permet de vider la sélection
-                language: "fr"    // Pour la traduction des messages
+                allowClear: true,
+                language: "fr",
+                width: '100%',
+                minimumResultsForSearch: 0 // Toujours afficher la barre de recherche
             });
         });
     }

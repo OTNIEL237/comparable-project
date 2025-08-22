@@ -963,8 +963,9 @@ switch ($onglet_actif) {
                 <!-- Sélecteur de stagiaire -->
                 <form method="GET" class="stagiaire-select-form">
                     <input type="hidden" name="tab" value="presences">
+                    <!-- Barre de recherche indépendante -->
                     <select id="stagiaire-select-presence" name="stagiaire_id" onchange="this.form.submit()" class="filter-select">
-                        <option value="">-- Choisir un stagiaire --</option>
+                        <option value=""></option>
                         <?php foreach($stagiaires_encadreur as $stag): ?>
                             <option value="<?php echo $stag['id']; ?>" <?php if($stag['id'] == $stagiaire_id_selectionne) echo 'selected'; ?>>
                                 <?php echo htmlspecialchars($stag['prenom'] . ' ' . $stag['nom']); ?>
@@ -972,6 +973,36 @@ switch ($onglet_actif) {
                         <?php endforeach; ?>
                     </select>
                 </form>
+                <!-- Ajout des CDN jQuery et Select2 + initialisation -->
+                <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+                <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+                <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+                <script>
+                $(document).ready(function() {
+                    $('#stagiaire-select-presence').select2({
+                        placeholder: "Saisir le nom du stagiaire à rechercher",
+                        allowClear: true,
+                        language: "fr",
+                        width: '100%',
+                        minimumResultsForSearch: 0
+                    });
+                });
+                </script>
+                    <!-- Ajout des CDN jQuery et Select2 + initialisation -->
+                    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+                    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+                    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+                    <script>
+                    $(document).ready(function() {
+                        $('#stagiaire-select-presence').select2({
+                            placeholder: "Rechercher ou sélectionner un stagiaire",
+                            allowClear: true,
+                            language: "fr",
+                            width: '100%',
+                            minimumResultsForSearch: 0 // Toujours afficher la barre de recherche
+                        });
+                    });
+                    </script>
             </div>
 
             <?php if ($stagiaire_id_selectionne): // N'afficher la grille que si un stagiaire est choisi ?>
@@ -1013,7 +1044,18 @@ switch ($onglet_actif) {
                                                 <i class="fas fa-sign-out-alt"></i>
                                                 <span><?php echo $jour['details']['depart'] ?? '-'; ?></span>
                                             </div>
+                                            
+                                            <!-- NOUVELLE VERSION POUR AFFICHER LA LOCALISATION EN TEXTE -->
+                                            <?php if (!empty($jour['details']['localisation'])): ?>
+                                            <div class="detail-item">
+                                                <i class="fas fa-map-marker-alt"></i>
+                                                <span title="<?php echo htmlspecialchars($jour['details']['localisation']); ?>">
+                                                    <?php echo htmlspecialchars($jour['details']['localisation']); ?>
+                                                </span>
+                                            </div>
+                                            <?php endif; ?>
                                         </div>
+                                        
                                     <?php endif; ?>
                                 </div>
                             </div>

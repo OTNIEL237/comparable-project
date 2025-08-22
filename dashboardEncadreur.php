@@ -829,7 +829,18 @@ switch ($onglet_actif) {
                                                 <i class="fas fa-sign-out-alt"></i>
                                                 <span><?php echo $jour['details']['depart'] ?? '-'; ?></span>
                                             </div>
+                                            
+                                            <!-- NOUVELLE VERSION POUR AFFICHER LA LOCALISATION EN TEXTE -->
+                                            <?php if (!empty($jour['details']['localisation'])): ?>
+                                            <div class="detail-item">
+                                                <i class="fas fa-map-marker-alt"></i>
+                                                <span title="<?php echo htmlspecialchars($jour['details']['localisation']); ?>">
+                                                    <?php echo htmlspecialchars($jour['details']['localisation']); ?>
+                                                </span>
+                                            </div>
+                                            <?php endif; ?>
                                         </div>
+                                        
                                     <?php endif; ?>
                                 </div>
                             </div>

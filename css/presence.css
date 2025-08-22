@@ -1,304 +1,177 @@
 /* ===================================================================
-==        STYLES DESIGN POUR LE MODULE DE PRÉSENCE (LISTE)         ==
+==        STYLES "WAOUH" POUR LE MODULE DE PRÉSENCE (V4)           ==
 =================================================================== */
 
+/* --- Variables de couleurs améliorées --- */
 :root {
-    --primary-color: #0066cc;
-    --primary-light: #e6f0fa;
-    --accent-color: #dc3545;
-    --accent-light: #fde8e9;
-    --success-color: #28a745;
-    --success-light: #e9f7ef;
-    --warning-color: #ffc107;
-    --warning-light: #fff8e1;
-    --text-primary: #212529;
-    --text-secondary: #6c757d;
+    --primary-color: #4A90E2; /* Un bleu plus doux et moderne */
+    --primary-light: rgba(74, 144, 226, 0.1);
+    --danger-color: #D0021B;
+    --danger-light: rgba(208, 2, 27, 0.1);
+    --success-color: #7ED321;
+    --success-light: rgba(126, 211, 33, 0.1);
+    --warning-color: #F5A623;
+    --warning-light: rgba(245, 166, 35, 0.1);
+    --text-primary: #2c3e50; /* Texte presque noir, plus doux */
+    --text-secondary: #8a9eb2;
     --surface-color: #ffffff;
-    --background-color: #f4f7fc; /* Un gris-bleu très clair */
-    --border-color: #dee2e6;
-    --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.08);
-    --shadow-strong: 0 8px 20px rgba(0, 0, 0, 0.1);
+    --background-color: #f9fafc;
+    --border-color: #e8eef3;
+    --shadow-soft: 0 5px 15px rgba(0, 0, 0, 0.04);
+    --shadow-strong: 0 10px 30px rgba(74, 144, 226, 0.15);
+    --radius-md: 16px;
 }
 
-.presence-content-liste {
-    display: flex;
-    flex-direction: column;
+/* --- GRILLE DE PRÉSENCE RESPONSIVE --- */
+.semaine-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 2rem;
 }
 
-/* --- La boîte de pointage reste similaire mais affinée --- */
-.pointage-box {
-    background-color: var(--surface-color);
-    padding: 1.5rem 2rem;
-    border-radius: 12px;
-    box-shadow: var(--shadow-soft);
-}
-
-/* --- Vue de la semaine (refonte majeure) --- */
-.semaine-view {
-    background-color: var(--surface-color);
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: var(--shadow-soft);
-}
-
-.semaine-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-}
-.semaine-header h2 {
-    margin: 0;
-    font-size: 1.6rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-.semaine-header .btn-nav {
-    background: var(--background-color);
-    color: var(--text-secondary);
-    border: none;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    transition: all 0.2s ease-in-out;
-}
-.semaine-header .btn-nav:hover {
-    background: var(--primary-color);
-    color: #fff;
-    transform: scale(1.1);
-}
-
-.semaine-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 1.5rem;
-}
-
+/* --- CARTE DE JOUR - EFFET DE FLOTTEMENT --- */
 .jour-card {
-    background: #fff;
-    border: 1px solid #e9ecef;
-    border-radius: 12px;
-    overflow: hidden;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
     display: flex;
     flex-direction: column;
     text-align: center;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: var(--shadow-soft);
+    position: relative;
+    overflow: hidden; /* Important pour les effets de fond */
 }
+
+/* Effet de survol subtil */
 .jour-card:hover {
     transform: translateY(-8px);
     box-shadow: var(--shadow-strong);
 }
 
+/* Effet de dégradé subtil en arrière-plan */
+.jour-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 120px;
+    opacity: 0.5;
+    transition: opacity 0.3s;
+}
+
+/* --- En-tête de la carte --- */
 .jour-header {
-    padding: 1rem;
-    border-bottom: 1px solid #e9ecef;
+    padding: 1.5rem 1rem;
+    position: relative; /* Pour être au-dessus de l'effet ::before */
 }
 .jour-header h3 {
-    margin: 0;
-    font-size: 1.1rem;
+    margin: 0 0 0.25rem 0;
+    font-size: 1.25rem;
+    color: var(--text-primary);
     font-weight: 600;
 }
 .jour-header span {
     font-size: 0.9rem;
     color: var(--text-secondary);
+    font-weight: 500;
 }
 
+/* --- Corps de la carte --- */
 .jour-body {
     padding: 1.5rem 1rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     flex-grow: 1;
+    position: relative; /* Pour être au-dessus de l'effet ::before */
 }
 
+/* Icône principale avec animation */
 .jour-status-icon {
-    font-size: 2.5rem;
-    margin-bottom: 0.75rem;
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    line-height: 1;
+    transition: transform 0.3s ease;
+}
+.jour-card:hover .jour-status-icon {
+    transform: scale(1.2);
 }
 
+/* Statut du jour (texte) */
 .jour-status-text {
-    font-size: 1rem;
-    font-weight: 500;
+    font-weight: 600;
     text-transform: capitalize;
-    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
 }
 
+/* Détails (heures, localisation) */
 .jour-details {
     margin-top: auto;
-    width: 100%;
     padding-top: 1rem;
-    border-top: 1px dashed var(--border-color);
+    width: 100%;
 }
 .detail-item {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    font-size: 0.9rem;
+    gap: 10px;
+    margin-top: 0.75rem;
     color: var(--text-secondary);
-    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+    text-align: left;
+}
+.detail-item i {
+    width: 18px;
+    text-align: center;
+    font-size: 1rem;
 }
 .detail-item span {
+    font-weight: 500;
+}
+.detail-item a {
+    color: var(--primary-color);
+    text-decoration: none;
     font-weight: 600;
-    color: var(--text-primary);
+    position: relative;
+}
+/* Effet de soulignement animé */
+.detail-item a::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    transform: scaleX(0);
+    height: 2px;
+    bottom: -2px;
+    left: 0;
+    background-color: var(--primary-color);
+    transform-origin: bottom right;
+    transition: transform 0.25s ease-out;
+}
+.detail-item a:hover::after {
+    transform: scaleX(1);
+    transform-origin: bottom left;
 }
 
-/* --- Couleurs et Thèmes des Statuts --- */
-.jour-card.status-present { border-color: var(--success-color); }
-.jour-card.status-present .jour-status-icon { color: var(--success-color); }
+/* --- COULEURS ET DÉGRADÉS DYNAMIQUES PAR STATUT --- */
+.jour-card.status-present { border-top: 4px solid var(--success-color); }
+.jour-card.status-present::before { background: linear-gradient(180deg, var(--success-light) 0%, rgba(255,255,255,0) 100%); }
+.jour-card.status-present .jour-status-icon,
 .jour-card.status-present .jour-status-text { color: var(--success-color); }
 
-.jour-card.status-retard { border-color: var(--warning-color); }
-.jour-card.status-retard .jour-status-icon { color: var(--warning-color); }
+.jour-card.status-retard { border-top: 4px solid var(--warning-color); }
+.jour-card.status-retard::before { background: linear-gradient(180deg, var(--warning-light) 0%, rgba(255,255,255,0) 100%); }
+.jour-card.status-retard .jour-status-icon,
 .jour-card.status-retard .jour-status-text { color: var(--warning-color); }
 
-.jour-card.status-absent { border-color: var(--accent-color); }
-.jour-card.status-absent .jour-status-icon { color: var(--accent-color); }
-.jour-card.status-absent .jour-status-text { color: var(--accent-color); }
+.jour-card.status-absent { border-top: 4px solid var(--danger-color); }
+.jour-card.status-absent::before { background: linear-gradient(180deg, var(--danger-light) 0%, rgba(255,255,255,0) 100%); }
+.jour-card.status-absent .jour-status-icon,
+.jour-card.status-absent .jour-status-text { color: var(--danger-color); }
 
 .jour-card.status-futur,
-.jour-card.status-hors_stage {
-    background-color: #f8f9fa;
-    color: #adb5bd;
-}
+.jour-card.status-hors_stage { border-top: 4px solid var(--border-color); }
 .jour-card.status-futur .jour-status-icon,
-.jour-card.status-hors_stage .jour-status-icon {
-    color: #ced4da;
-}
-
-.btn-semaine-actuelle {
-    display: block;
-    width: fit-content;
-    margin: 2rem auto 0;
-    background-color: var(--primary-light);
-    color: var(--primary-color);
-    border: 1px solid var(--primary-color);
-    font-weight: 600;
-}
-.btn-semaine-actuelle:hover {
-    background-color: var(--primary-color);
-    color: #fff;
-}
-
-/* --- Responsive pour les tablettes et mobiles --- */
-@media (max-width: 1200px) {
-    .semaine-grid {
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 1rem;
-    }
-}
-
-@media (max-width: 768px) {
-    .semaine-grid {
-        grid-template-columns: 1fr 1fr; /* 2 colonnes sur mobile */
-    }
-    .semaine-header h2 {
-        font-size: 1.2rem;
-    }
-}
-
-@media (max-width: 500px) {
-    .semaine-grid {
-        grid-template-columns: 1fr; /* 1 colonne sur très petit écran */
-    }
-}
-/* ===================================================================
-==               STYLES SPÉCIFIQUES POUR L'ENCADREUR               ==
-=================================================================== */
-
-.stagiaire-select-form {
-    flex-grow: 1;
-    display: flex;
-    justify-content: center;
-}
-
-.semaine-header .filter-select {
-    padding: 0.75rem 1.25rem;
-    font-size: 1rem;
-    font-weight: 500;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background-color: var(--background-color);
-    min-width: 300px;
-    cursor: pointer;
-}
-
-.semaine-navigation {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color);
-}
-.semaine-navigation h2 {
-    margin: 0;
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.empty-state {
-    padding: 3rem 1rem;
-    text-align: center;
-    color: var(--text-secondary);
-}
-.empty-state i {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-    opacity: 0.5;
-}
-/* ===================================================================
-==               STYLES POUR L'INTÉGRATION DE SELECT2              ==
-=================================================================== */
-
-/* Ajuster le conteneur du select pour qu'il prenne toute la largeur disponible */
-.select2-container {
-    width: 100% !important;
-    min-width: 300px;
-}
-
-/* Style de la sélection (le champ visible) */
-.select2-container--default .select2-selection--single {
-    height: 45px !important; /* Adapter la hauteur à vos autres champs */
-    border: 1px solid var(--border-color) !important;
-    border-radius: 8px !important;
-    background: var(--surface-color) !important;
-    box-shadow: 0 2px 5px rgba(0, 102, 204, 0.08);
-}
-
-/* Style du texte sélectionné */
-.select2-container--default .select2-selection--single .select2-selection__rendered {
-    color: var(--text-primary) !important;
-    line-height: 43px !important;
-    padding-left: 15px !important;
-    font-weight: 500;
-}
-
-/* Style de la flèche */
-.select2-container--default .select2-selection--single .select2-selection__arrow {
-    height: 43px !important;
-}
-
-/* Style de la liste déroulante */
-.select2-dropdown {
-    border: 1px solid var(--border-color) !important;
-    border-radius: 8px !important;
-    box-shadow: var(--shadow-lg) !important;
-}
-
-/* Style du champ de recherche dans la liste */
-.select2-container--default .select2-search--dropdown .select2-search__field {
-    border-radius: 6px;
-    border: 1px solid var(--border-color) !important;
-    padding: 8px 12px;
-}
-
-/* Style des résultats de recherche */
-.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
-    background-color: var(--primary-color) !important;
-    color: white !important;
-}
+.jour-card.status-futur .jour-status-text,
+.jour-card.status-hors_stage .jour-status-icon,
+.jour-card.status-hors_stage .jour-status-text { color: #bdc3c7; } /* Gris neutre */

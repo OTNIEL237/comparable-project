@@ -721,12 +721,114 @@ switch ($onglet_actif) {
                                 <div class="tache-card-footer">
                                     <span class="status-badge status-<?php echo $statut_reel; ?>"><?php echo str_replace('_', ' ', $statut_reel); ?></span>
                                     <div class="tache-actions">
+                                        <button class="btn btn-sm btn-info" onclick="consulterTache(<?php echo $t['id']; ?>)">
+                                            <i class="fas fa-eye"></i> Consulter
+                                        </button>
                                         <button class="btn btn-sm btn-secondary" onclick="modifierTache(<?php echo $t['id']; ?>)">
                                             <i class="fas fa-edit"></i> Modifier
                                         </button>
                                         <button class="btn btn-sm btn-danger" onclick="supprimerTache(<?php echo $t['id']; ?>)">
                                             <i class="fas fa-trash"></i> Supprimer
                                         </button>
+</div>
+</div>
+
+<!-- Modal Consulter Tâche -->
+<style>
+    /* Style amélioré pour la modale consulter tâche */
+    #modalConsulterTache .modal-content {
+        max-width: 420px;
+        margin: 0 auto;
+        border-radius: 14px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        background: #fff;
+        padding: 0;
+    }
+    #modalConsulterTache .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--primary-color, #007bff);
+        color: #fff;
+        border-top-left-radius: 14px;
+        border-top-right-radius: 14px;
+        padding: 1rem 1.5rem;
+    }
+    #modalConsulterTache .modal-header h3 {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    #modalConsulterTache .modal-close {
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 1.3rem;
+        cursor: pointer;
+    }
+    #modalConsulterTache .modal-body {
+        padding: 1.5rem;
+        font-size: 1rem;
+        color: #222;
+    }
+    .tache-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+    }
+    .tache-details h4 {
+        font-size: 1.1rem;
+        color: var(--primary-color, #007bff);
+        margin-bottom: 0.2rem;
+    }
+    .tache-details .stagiaire-nom {
+        font-weight: 600;
+        color: var(--accent-color, #e74c3c);
+        margin-bottom: 0.5rem;
+    }
+    .tache-details p {
+        margin: 0.2rem 0;
+    }
+    @media (max-width: 600px) {
+        #modalConsulterTache .modal-content {
+            max-width: 98vw;
+        }
+        .tache-actions {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .tache-actions .btn {
+            width: 100%;
+        }
+    }
+    .tache-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+    .tache-actions .btn {
+        min-width: 110px;
+        padding: 0.5rem 1.1rem;
+        font-size: 1rem;
+        border-radius: 8px;
+        box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,0.07));
+        transition: background 0.2s, color 0.2s;
+    }
+</style>
+<div id="modalConsulterTache" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="consulterTacheModalTitle">Détails de la tâche</h3>
+            <button class="modal-close" onclick="fermerModal('modalConsulterTache')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="consulterTacheModalBody">
+            <!-- Les détails seront injectés ici -->
+        </div>
+    </div>
+</div>
                                     </div>
                                 </div>
                             </div>

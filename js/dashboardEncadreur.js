@@ -1,3 +1,35 @@
+// Affiche les détails d'une tâche dans la modale
+function consulterTache(tacheId) {
+    const formData = new FormData();
+    formData.append('action', 'get_tache');
+    formData.append('tache_id', tacheId);
+    fetch(window.location.href, { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.id) {
+                let html = `<div class='tache-details'>`;
+                html += `<span class='stagiaire-nom'>${data.prenom ? data.prenom : ''} ${data.nom ? data.nom : ''}</span>`;
+                html += `<h4>${data.titre}</h4>`;
+                html += `<p><strong>Description :</strong> ${data.description}</p>`;
+                html += `<p><strong>Échéance :</strong> ${data.date_echeance ? new Date(data.date_echeance).toLocaleDateString('fr-FR') : ''}</p>`;
+                if (data.nom_fichier_original) {
+                    html += `<p><strong>Fichier joint :</strong> <a href='uploads/taches/${data.fichier_joint}' target='_blank'>${data.nom_fichier_original}</a></p>`;
+                }
+                html += `<p><strong>Statut :</strong> ${data.statut}</p>`;
+                html += `</div>`;
+                document.getElementById('consulterTacheModalTitle').textContent = `Détails de la tâche`;
+                document.getElementById('consulterTacheModalBody').innerHTML = html;
+                ouvrirModal('modalConsulterTache');
+            } else {
+                document.getElementById('consulterTacheModalBody').innerHTML = '<p>Impossible de charger les détails de la tâche.</p>';
+                ouvrirModal('modalConsulterTache');
+            }
+        })
+        .catch(() => {
+            document.getElementById('consulterTacheModalBody').innerHTML = '<p>Erreur technique lors du chargement.</p>';
+            ouvrirModal('modalConsulterTache');
+        });
+}
 // ===================================================================
 // ==       FICHIER JAVASCRIPT COMPLET POUR LE DASHBOARD ENCADREUR      ==
 // ===================================================================

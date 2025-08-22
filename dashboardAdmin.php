@@ -153,13 +153,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             header('Content-Type: application/json');
             $stagiaire_id = $_POST['stagiaire_id'];
             
-            // Récupérer les détails du stagiaire
-            $sql_stagiaire = "SELECT u.*, s.filiere, s.niveau, s.date_debut, s.date_fin
-                            FROM utilisateurs u
-                            JOIN stagiaire s ON u.id = s.id_utilisateur
-                            WHERE u.id = ? AND s.encadreur_id = ?";
-            $stmt_stagiaire = $conn->prepare($sql_stagiaire);
-            $stmt_stagiaire->bind_param("ii", $stagiaire_id, $user_id);
+            // Correction : requête différente selon le rôle
+            if ($role === 'admin') {
+                $sql_stagiaire = "SELECT u.*, s.filiere, s.niveau, s.date_debut, s.date_fin
+                                  FROM utilisateurs u
+                                  JOIN stagiaire s ON u.id = s.id_utilisateur
+                                  WHERE u.id = ?";
+                $stmt_stagiaire = $conn->prepare($sql_stagiaire);
+                $stmt_stagiaire->bind_param("i", $stagiaire_id);
+            } else {
+                $sql_stagiaire = "SELECT u.*, s.filiere, s.niveau, s.date_debut, s.date_fin
+                                  FROM utilisateurs u
+                                  JOIN stagiaire s ON u.id = s.id_utilisateur
+                                  WHERE u.id = ? AND s.encadreur_id = ?";
+                $stmt_stagiaire = $conn->prepare($sql_stagiaire);
+                $stmt_stagiaire->bind_param("ii", $stagiaire_id, $user_id);
+            }
             $stmt_stagiaire->execute();
             $stagiaire_details = $stmt_stagiaire->get_result()->fetch_assoc();
 
@@ -894,6 +903,9 @@ switch ($onglet_actif) {
                                 <div class="tache-card-footer">
                                     <span class="status-badge status-<?php echo $statut_reel; ?>"><?php echo str_replace('_', ' ', $statut_reel); ?></span>
                                     <div class="tache-actions">
+                                        <button class="btn btn-sm btn-info" onclick="voirTache(<?php echo $t['id']; ?>)">
+                                            <i class="fas fa-eye"></i> Consulter
+                                        </button>
                                         <button class="btn btn-sm btn-secondary" onclick="modifierTache(<?php echo $t['id']; ?>)">
                                             <i class="fas fa-edit"></i> Modifier
                                         </button>
@@ -1178,10 +1190,20 @@ switch ($onglet_actif) {
             <?php elseif ($onglet_actif === 'gestion-theme'): ?>
 <div class="themes-content">
     <div class="toolbar">
-    <div class="toolbar-left">
-        <button class="btn btn-primary" onclick="ouvrirModalTheme()">
-            <i class="fas fa-plus"></i> Nouveau Thème
-        </button>
+        <div class="toolbar-actions">
+            <button class="btn btn-primary" onclick="ouvrirModalTheme()">
+                <i class="fas fa-plus"></i> Nouveau Thème
+            </button>
+        </div>
+        <div class="toolbar-filters">
+            <form method="GET" class="search-form">
+                <input type="hidden" name="tab" value="gestion-theme">
+                <div class="search-box">
+                    <input type="text" name="search" placeholder="Rechercher un thème..." value="<?php echo htmlspecialchars($recherche); ?>">
+                    <button type="submit"><i class="fas fa-search"></i></button>
+                </div>
+            </form>
+        </div>
     </div>
         <div class="themes-grid">
         <?php if ($themes->num_rows > 0): ?>
@@ -1189,17 +1211,16 @@ switch ($onglet_actif) {
                 <div class="theme-card">
                     <div class="theme-card-header">
                         <h3><?php echo htmlspecialchars($th['titre']); ?></h3>
-                        <div class="header-meta">
-                            <span class="theme-filiere"><?php echo htmlspecialchars($th['filiere']); ?></span>
-                            <!-- BLOC AJOUTÉ : AFFICHER LE CRÉATEUR POUR L'ADMIN -->
-                            <?php if ($role === 'admin' && isset($th['encadreur_prenom'])): ?>
-                                <span class="theme-creator">
-                                    <i class="fas fa-user-tie"></i> 
-                                    <?php echo htmlspecialchars($th['encadreur_prenom'] . ' ' . $th['encadreur_nom']); ?>
-                                </span>
-                            <?php endif; ?>
-                            <!-- FIN DU BLOC AJOUTÉ -->
-                        </div>
+                        <ul class="header-meta">
+                            <li>
+                                <i class="fas fa-user-tie"></i> 
+                                <span><?php echo htmlspecialchars($th['encadreur_prenom'] . ' ' . $th['encadreur_nom']); ?></span>
+                            </li>
+                            <li>
+                                <i class="fas fa-graduation-cap"></i>
+                                <span><?php echo htmlspecialchars($th['filiere']); ?></span>
+                            </li>
+                        </ul>
                     </div>
                     <div class="theme-card-body">
                         <p><?php echo htmlspecialchars(substr($th['description'], 0, 150)) . '...'; ?></p>
@@ -1221,7 +1242,10 @@ switch ($onglet_actif) {
                             <?php endif; ?>
                         </div>
                         <div class="theme-actions">
-                            <button class="btn btn-sm" onclick="ouvrirModalAttribuer(<?php echo $th['id']; ?>)">
+                            <button class="btn btn-sm btn-info" onclick="voirTheme(<?php echo $th['id']; ?>)">
+                                <i class="fas fa-eye"></i> Consulter
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="ouvrirModalAttribuer(<?php echo $th['id']; ?>)">
                                 <i class="fas fa-user-plus"></i> Attribuer
                             </button>
                             <button class="btn btn-sm btn-secondary" onclick="ouvrirModalTheme(<?php echo $th['id']; ?>)">
@@ -1233,6 +1257,7 @@ switch ($onglet_actif) {
                         </div>
                     </div>
                 </div>
+                
             <?php endwhile; ?>
         <?php else: ?>
             <div class="empty-state">
@@ -1670,6 +1695,25 @@ switch ($onglet_actif) {
         </form>
     </div>
 </div>
+
+<div id="modalVoirTheme" class="modal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h3 id="themeModalTitle">Détails du Thème</h3>
+            <button class="modal-close" onclick="fermerModal('modalVoirTheme')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="themeModalBody">
+            <!-- Le contenu détaillé du thème sera injecté ici par JavaScript -->
+            <div class="loading-spinner"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="fermerModal('modalVoirTheme')">Fermer</button>
+        </div>
+    </div>
+</div>
+
 <!-- NOUVELLE MODALE : Consulter les Détails du Stagiaire (Lecture Seule) -->
 <div id="modalConsulterStagiaire" class="modal">
     <div class="modal-content large">
@@ -1701,6 +1745,27 @@ switch ($onglet_actif) {
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="fermerModal('modalConsulterStagiaire')">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<!-- ======================================================= -->
+<!-- ============= NOUVELLE MODALE : VOIR TÂCHE ============ -->
+<!-- ======================================================= -->
+<div id="modalVoirTache" class="modal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h3 id="tacheModalTitle">Détails de la Tâche</h3>
+            <button class="modal-close" onclick="fermerModal('modalVoirTache')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="tacheModalBody">
+            <!-- Le contenu détaillé de la tâche sera injecté ici par JavaScript -->
+            <div class="loading-spinner"></div>
+        </div>
+        <div class="modal-footer" id="tacheModalFooter">
+            <button type="button" class="btn btn-secondary" onclick="fermerModal('modalVoirTache')">Fermer</button>
         </div>
     </div>
 </div>

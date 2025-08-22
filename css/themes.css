@@ -1,60 +1,99 @@
-/* --- Styles pour la Gestion des Thèmes (Encadreur) --- */
+/* ===================================================================
+==        STYLES COMPLETS POUR LA GESTION DES THÈMES             ==
+=================================================================== */
 
+/* --- Grille des thèmes --- */
 .themes-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
     gap: 1.5rem;
-    justify-items: start; /* Align cards to the left */
-    justify-content: start; /* Align grid to the left */
-    max-width: 1200px;      /* Optional: limit grid width */
 }
 
+/* --- Carte de thème --- */
 .theme-card {
-    background: var(--surface-color);
+    background: #ffffff;
     border-radius: 12px;
-    box-shadow: var(--shadow);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
     display: flex;
     flex-direction: column;
-    border-left: 5px solid var(--primary-color);
+    border: 1px solid #e9ecef;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 
+.theme-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* --- En-tête de la carte (Nouvelle structure) --- */
 .theme-card-header {
     padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-}
-.theme-card-header h3 {
-    margin: 0 0 5px 0;
-    color: var(--text-primary);
-}
-.theme-filiere {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--primary-color);
+    border-bottom: 1px solid #e9ecef;
 }
 
+.theme-card-header h3 {
+    margin: 0;
+    color: #212529; /* Texte plus foncé pour le titre */
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.theme-card-header .header-meta {
+    list-style: none; /* Enlève les puces de la liste */
+    padding: 0;
+    margin: 0.5rem 0 0 0;
+    display: flex;
+    flex-wrap: wrap; /* Permet aux éléments de passer à la ligne */
+    gap: 0.5rem 1.5rem; /* Espace vertical et horizontal entre les éléments */
+    font-size: 0.85rem;
+    color: #6c757d; /* Couleur de texte secondaire */
+}
+
+.header-meta li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* Espace entre l'icône et le texte */
+}
+
+.header-meta li i {
+    color: #007bff; /* Couleur primaire pour les icônes */
+}
+
+/* --- Corps de la carte --- */
 .theme-card-body {
     padding: 1.5rem;
     flex-grow: 1;
-    color: var(--text-secondary);
+    color: #495057; /* Couleur de texte légèrement plus foncée */
+    font-size: 0.95rem;
+    line-height: 1.6;
 }
+
 .theme-dates {
     display: flex;
     justify-content: space-between;
     font-size: 0.85rem;
     margin-top: 1rem;
     padding-top: 1rem;
-    border-top: 1px dashed var(--border-color);
-    color: var(--text-primary);
+    border-top: 1px dashed #dee2e6;
+    color: #212529;
 }
 
+/* --- Pied de page de la carte (avec boutons alignés) --- */
 .theme-card-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.5rem;
-    background: var(--light-color);
-    border-top: 1px solid var(--border-color);
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
+
+.theme-status {
+    flex-shrink: 0; 
+}
+
 .theme-status .status-badge {
     padding: 5px 12px;
     border-radius: 20px;
@@ -62,63 +101,59 @@
     font-weight: 600;
     color: white;
 }
-.theme-status .status-attribue { background-color: var(--success-color); }
-.theme-status .status-disponible { background-color: var(--info-color); }
+.theme-status .status-attribue { background-color: #28a745; }
+.theme-status .status-disponible { background-color: #17a2b8; }
 
-.form-group-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-}
-
-/* --- Styles pour l'affichage du thème (Stagiaire) --- */
-
-.theme-stagiaire-card {
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-    color: white;
-    border-radius: 12px;
-    padding: 1.5rem 2rem;
+.theme-actions {
     display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.theme-actions .btn {
+    display: inline-flex;
     align-items: center;
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease-in-out;
     cursor: pointer;
-    transition: transform 0.3s, box-shadow 0.3s;
-}
-.theme-stagiaire-card:hover {
-    transform: translateY(-5px);
-    box-shadow: var(--shadow-lg);
-}
-
-.theme-stagiaire-icon {
-    font-size: 3rem;
-    opacity: 0.7;
-}
-
-.theme-stagiaire-info h4 {
-    margin: 0;
-    font-weight: 400;
-    font-size: 1rem;
-    opacity: 0.9;
-}
-.theme-stagiaire-info h2 {
-    margin: 5px 0;
-    font-size: 1.8rem;
-}
-.theme-stagiaire-info p {
-    margin: 0;
-    opacity: 0.9;
-}
-
-.theme-stagiaire-action {
-    margin-left: auto;
     font-weight: 500;
+    color: #fff;
 }
 
-/* Modal Voir Thème */
-#modalVoirTheme .modal-content { max-width: 700px; }
-#modalVoirTheme h4 { font-size: 1.5rem; color: var(--primary-dark); margin-bottom: 1rem; }
-.theme-details-filiere { font-size: 1.1rem; margin-bottom: 1rem; }
-.theme-details-description { line-height: 1.6; margin: 1rem 0; }
-.theme-details-dates { display: flex; justify-content: space-between; margin-top: 1rem; font-size: 0.9rem; }
+.theme-actions .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
 
+.theme-actions .btn-info { /* Consulter */
+    background-color: #e9ecef;
+    color: #495057;
+    border-color: #dee2e6;
+}
+.themes-content .toolbar {
+    display: flex;
+    justify-content: space-between; /* Pousse le bouton à gauche et la recherche à droite */
+    align-items: center;
+    padding-bottom: 1.5rem; /* Espace avant la grille */
+    margin-bottom: 1.5rem; /* Espace avant la grille */
+    border-bottom: 1px solid #e9ecef; /* Ligne de séparation */
+    flex-wrap: wrap; /* Passage à la ligne sur mobile */
+    gap: 1rem; /* Espace entre les éléments s'ils passent à la ligne */
+}
+.theme-actions .btn-info:hover { background-color: #dee2e6; color: #212529; }
+.theme-actions .btn-primary { background-color: #007bff; } /* Attribuer */
+.theme-actions .btn-primary:hover { background-color: #0069d9; }
+.theme-actions .btn-secondary { background-color: #6c757d; } /* Modifier */
+.theme-actions .btn-secondary:hover { background-color: #5a6268; }
+.theme-actions .btn-danger { background-color: #dc3545; } /* Supprimer */
+.theme-actions .btn-danger:hover { background-color: #c82333; }
+
+/* --- Modale "Voir Thème" --- */
+#modalVoirTheme .rapport-details-view {
+    padding: 1rem;
+}

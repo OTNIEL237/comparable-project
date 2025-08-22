@@ -1,34 +1,49 @@
-// Affiche les détails d'une tâche dans la modale
-function consulterTache(tacheId) {
+// ================= CONSULTER STAGIAIRE ======================
+function consulterStagiaire(stagiaireId) {
     const formData = new FormData();
-    formData.append('action', 'get_tache');
-    formData.append('tache_id', tacheId);
-    fetch(window.location.href, { method: 'POST', body: formData })
-        .then(response => response.json())
-        .then(data => {
-            if (data && data.id) {
-                let html = `<div class='tache-details'>`;
-                html += `<span class='stagiaire-nom'>${data.prenom ? data.prenom : ''} ${data.nom ? data.nom : ''}</span>`;
-                html += `<h4>${data.titre}</h4>`;
-                html += `<p><strong>Description :</strong> ${data.description}</p>`;
-                html += `<p><strong>Échéance :</strong> ${data.date_echeance ? new Date(data.date_echeance).toLocaleDateString('fr-FR') : ''}</p>`;
-                if (data.nom_fichier_original) {
-                    html += `<p><strong>Fichier joint :</strong> <a href='uploads/taches/${data.fichier_joint}' target='_blank'>${data.nom_fichier_original}</a></p>`;
-                }
-                html += `<p><strong>Statut :</strong> ${data.statut}</p>`;
-                html += `</div>`;
-                document.getElementById('consulterTacheModalTitle').textContent = `Détails de la tâche`;
-                document.getElementById('consulterTacheModalBody').innerHTML = html;
-                ouvrirModal('modalConsulterTache');
-            } else {
-                document.getElementById('consulterTacheModalBody').innerHTML = '<p>Impossible de charger les détails de la tâche.</p>';
-                ouvrirModal('modalConsulterTache');
-            }
-        })
-        .catch(() => {
-            document.getElementById('consulterTacheModalBody').innerHTML = '<p>Erreur technique lors du chargement.</p>';
-            ouvrirModal('modalConsulterTache');
-        });
+    formData.append('action', 'get_stagiaire_details');
+    formData.append('stagiaire_id', stagiaireId);
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.stagiaireDetails) {
+            const details = data.stagiaireDetails;
+            let html = `<h2>${details.prenom} ${details.nom}</h2>`;
+            html += `<p><strong>Email :</strong> ${details.email}</p>`;
+            html += `<p><strong>Téléphone :</strong> ${details.telephone || 'Non renseigné'}</p>`;
+            html += `<p><strong>Sexe :</strong> ${details.sex === 'M' ? 'Masculin' : 'Féminin'}</p>`;
+            html += `<p><strong>Filière :</strong> ${details.filiere}</p>`;
+            html += `<p><strong>Niveau :</strong> ${details.niveau}</p>`;
+            html += `<p><strong>Période :</strong> Du ${details.date_debut} au ${details.date_fin}</p>`;
+            ouvrirModalStagiaire(html);
+        } else {
+            alert('Impossible de charger les informations du stagiaire.');
+        }
+    })
+    .catch(() => {
+        alert('Erreur technique lors du chargement des informations.');
+    });
+}
+
+function ouvrirModalStagiaire(contentHtml) {
+    let modal = document.getElementById('modalConsulterStagiaire');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modalConsulterStagiaire';
+        modal.className = 'modal';
+        modal.innerHTML = `<div class="modal-content"><div class="modal-header"><h3>Informations du stagiaire</h3><button class="modal-close" onclick="fermerModal('modalConsulterStagiaire')">&times;</button></div><div class="modal-body"></div></div>`;
+        document.body.appendChild(modal);
+    }
+    modal.querySelector('.modal-body').innerHTML = contentHtml;
+    modal.style.display = 'block';
+}
+
+function fermerModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.style.display = 'none';
 }
 // ===================================================================
 // ==       FICHIER JAVASCRIPT COMPLET POUR LE DASHBOARD ENCADREUR      ==
@@ -351,6 +366,53 @@ async function confirmerAttributionThemePourStagiaire(form) {
     await soumettreFormulaire(form, 'attribuer_theme', 'Thème attribué avec succès !', 'modalAttribuerThemeAStagiaire');
 }
 
+async function voirTheme(themeId) {
+    const modalBody = document.getElementById('themeModalBody');
+    const modalTitle = document.getElementById('themeModalTitle');
+
+    modalBody.innerHTML = '<div class="loading-spinner"></div>';
+    modalTitle.textContent = 'Chargement du thème...';
+    ouvrirModal('modalVoirTheme');
+
+    const formData = new FormData();
+    formData.append('action', 'get_theme_details');
+    formData.append('theme_id', themeId);
+
+    try {
+        const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        const theme = await response.json();
+
+        if (theme) {
+            modalTitle.textContent = theme.titre;
+            
+            let statutHtml = `<span class="status-badge status-disponible"><i class="fas fa-circle-notch"></i> Disponible</span>`;
+            if (theme.stagiaire_id) {
+                statutHtml = `<span class="status-badge status-attribue"><i class="fas fa-user-check"></i> Attribué à ${theme.stagiaire_prenom} ${theme.stagiaire_nom}</span>`;
+            }
+
+            // Construire le contenu HTML
+            let contenuHtml = `
+                <div class="rapport-details-view"> <!-- On réutilise le style de la modale des rapports -->
+                    <div class="rapport-meta">
+                        <div class="meta-item"><strong>Filière:</strong> ${theme.filiere}</div>
+                        <div class="meta-item"><strong>Créé par:</strong> ${theme.encadreur_prenom} ${theme.encadreur_nom}</div>
+                        <div class="meta-item"><strong>Période:</strong> Du ${new Date(theme.date_debut + 'T00:00:00').toLocaleDateString('fr-FR')} au ${new Date(theme.date_fin + 'T00:00:00').toLocaleDateString('fr-FR')}</div>
+                        <div class="meta-item"><strong>Statut:</strong> ${statutHtml}</div>
+                    </div>
+                    <hr>
+                    <h4><i class="fas fa-align-left"></i> Description</h4>
+                    <p class="section-content">${theme.description.replace(/\n/g, '<br>')}</p>
+                </div>
+            `;
+            modalBody.innerHTML = contenuHtml;
+
+        } else {
+            modalBody.innerHTML = `<p class="text-danger">Thème non trouvé ou accès refusé.</p>`;
+        }
+    } catch (error) {
+        modalBody.innerHTML = `<p class="text-danger">Impossible de charger les détails du thème.</p>`;
+    }
+}
 
 // ===================================================================
 // ==                    GESTION DES RAPPORTS                       ==
@@ -526,6 +588,67 @@ async function supprimerTache(tacheId) {
     const formData = new FormData();
     formData.append('tache_id', tacheId);
     await soumettreFormulaire(formData, 'supprimer_tache', 'Tâche supprimée avec succès !');
+}
+
+async function voirTache(tacheId) {
+    const modalBody = document.getElementById('tacheModalBody');
+    const modalTitle = document.getElementById('tacheModalTitle');
+    
+    modalBody.innerHTML = '<div class="loading-spinner"></div>';
+    modalTitle.textContent = 'Chargement de la tâche...';
+    ouvrirModal('modalVoirTache');
+
+    const formData = new FormData();
+    formData.append('action', 'get_tache');
+    formData.append('tache_id', tacheId);
+
+    try {
+        const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        const tache = await response.json();
+
+        if (tache) {
+            modalTitle.textContent = tache.titre;
+
+            let fichierHtml = '<p>Aucune pièce jointe.</p>';
+            if (tache.nom_fichier_original) {
+                fichierHtml = `<a href="uploads/taches/${tache.fichier_joint}" target="_blank" class="btn btn-sm btn-primary">
+                                 <i class="fas fa-download"></i> ${tache.nom_fichier_original}
+                               </a>`;
+            }
+            
+            let statutReel = tache.statut;
+            if (statutReel === 'en_attente' && new Date(tache.date_echeance) < new Date()) {
+                statutReel = 'en_retard';
+            }
+            
+            // Construire le contenu HTML avec toutes les informations
+            let contenuHtml = `
+                <div class="rapport-details-view">
+                    <div class="rapport-meta">
+                        <div class="meta-item"><strong>Assignée à:</strong> ${tache.stagiaire_prenom || ''} ${tache.stagiaire_nom || ''}</div>
+                        <div class="meta-item"><strong>Assignée par:</strong> ${tache.encadreur_prenom || ''} ${tache.encadreur_nom || ''}</div>
+                        <div class="meta-item"><strong>Statut:</strong> <span class="status-badge status-${statutReel}">${statutReel.replace('_', ' ')}</span></div>
+                        <div class="meta-item"><strong>Date d'échéance:</strong> ${new Date(tache.date_echeance + 'T00:00:00').toLocaleDateString('fr-FR')}</div>
+                        ${tache.date_completion ? `<div class="meta-item"><strong>Terminée le:</strong> ${new Date(tache.date_completion).toLocaleDateString('fr-FR')}</div>` : ''}
+                    </div>
+                    <hr>
+                    <h4><i class="fas fa-align-left"></i> Description</h4>
+                    <p class="section-content">${tache.description.replace(/\n/g, '<br>')}</p>
+                    <hr>
+                    <h4><i class="fas fa-paperclip"></i> Pièce Jointe</h4>
+                    <div class="section-content">
+                        ${fichierHtml}
+                    </div>
+                </div>
+            `;
+            modalBody.innerHTML = contenuHtml;
+
+        } else {
+            modalBody.innerHTML = `<p class="text-danger">Tâche non trouvée ou accès refusé.</p>`;
+        }
+    } catch (error) {
+        modalBody.innerHTML = `<p class="text-danger">Impossible de charger les détails de la tâche.</p>`;
+    }
 }
 
 

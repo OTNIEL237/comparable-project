@@ -26,6 +26,7 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    padding: 1.5rem;
 }
 
 /* Grille des tâches */
@@ -100,20 +101,69 @@
 }
 
 .tache-card-footer {
-    padding: 1rem 1.5rem;
-    background-color: var(--light-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-top: 1px solid var(--border-color);
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
+    display: flex; /* Active Flexbox */
+    justify-content: space-between; /* Pousse le statut à gauche et les actions à droite */
+    align-items: center; /* Centre les éléments verticalement */
+    padding: 0.75rem 1rem;
+    background-color: #f8f9fa; /* Un fond légèrement différent pour la séparation */
+    border-top: 1px solid #e9ecef;
+    flex-wrap: wrap; /* Permet aux éléments de passer à la ligne sur de petits écrans */
+    gap: 0.75rem; /* Espace entre le statut et les actions si ils passent à la ligne */
 }
 
+.tache-actions {
+    display: flex; /* Active Flexbox pour les boutons eux-mêmes */
+    gap: 0.5rem; /* Ajoute un petit espace entre chaque bouton */
+    flex-wrap: wrap; /* Permet aux boutons de passer à la ligne si l'espace manque */
+}
+
+/* --- Style de base des boutons d'action --- */
 .tache-actions .btn {
-    margin-left: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem; /* Espace entre l'icône et le texte */
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+    font-weight: 500;
 }
 
+/* --- Style spécifique pour chaque bouton (Consulter, Modifier, Supprimer) --- */
+
+/* Bouton Consulter (Nouveau) */
+.tache-actions .btn-info {
+    background-color: #e9ecef;
+    color: #495057;
+    border-color: #dee2e6;
+}
+
+.tache-actions .btn-info:hover {
+    background-color: #dee2e6;
+    color: #212529;
+}
+
+/* Bouton Modifier */
+.tache-actions .btn-secondary {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+.tache-actions .btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+/* Bouton Supprimer */
+.tache-actions .btn-danger {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+.tache-actions .btn-danger:hover {
+    background-color: #c82333;
+}
 /* Statuts des tâches */
 .status-badge {
     padding: 0.25rem 0.6rem;

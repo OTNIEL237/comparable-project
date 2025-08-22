@@ -166,8 +166,18 @@ class Tache {
     /**
      * Récupère une tâche par son ID
      */
-    public function getTacheById($tache_id) {
-        $sql = "SELECT * FROM taches WHERE id = ?";
+     public function getTacheById($tache_id) {
+        // CORRECTION : Ajout des jointures et des alias pour la cohérence
+        $sql = "SELECT 
+                    t.*,
+                    us.prenom AS stagiaire_prenom,
+                    us.nom AS stagiaire_nom,
+                    ue.prenom AS encadreur_prenom,
+                    ue.nom AS encadreur_nom
+                FROM taches t
+                LEFT JOIN utilisateurs us ON t.stagiaire_id = us.id
+                LEFT JOIN utilisateurs ue ON t.encadreur_id = ue.id
+                WHERE t.id = ?";
         $stmt = $this->conn->prepare($sql);
         $stmt->bind_param("i", $tache_id);
         $stmt->execute();

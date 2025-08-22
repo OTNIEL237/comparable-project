@@ -1286,7 +1286,7 @@ body {
     box-shadow: var(--shadow);
     padding: 25px;
     display: flex;
-    align-items: flex-start;
+    flex-direction: column;
     gap: 20px;
     transition: transform 0.3s ease, box-shadow 0.3s ease, border 0.3s ease;
     border: 1px solid transparent;
@@ -1335,9 +1335,15 @@ body {
 
 .stagiaire-actions {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: auto; /* Push actions to bottom if content varies */
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    margin-top: 1.5rem;
+    justify-content: flex-end;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--light-color);
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
 }
 
 /* Coming Soon Tab */
@@ -1688,11 +1694,40 @@ body {
 
 /* Amélioration du bouton sur la carte stagiaire */
 .stagiaire-card .stagiaire-actions {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-color);
     width: 100%;
     text-align: right;
+.stagiaire-actions .btn {
+    min-width: 110px;
+    padding: 0.5rem 1.1rem;
+    font-size: 1rem;
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    border: none;
+    background: var(--primary-color);
+    color: #fff;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+.stagiaire-actions .btn-secondary {
+    background: var(--info-color);
+    color: #fff;
+}
+.stagiaire-actions .btn-primary {
+    background: var(--primary-color);
+    color: #fff;
+}
+.stagiaire-actions .btn-danger {
+    background: var(--accent-color);
+    color: #fff;
+}
+.stagiaire-actions .btn:hover {
+    box-shadow: var(--shadow-lg);
+    filter: brightness(0.95);
+}
 }
 /* ===================================================================
 ==        STYLES POUR LA MODALE D'AFFICHAGE DES RAPPORTS         ==

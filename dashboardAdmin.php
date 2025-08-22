@@ -205,6 +205,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             echo json_encode(['success' => $resultat]);
             exit();
 
+        case 'creer_utilisateur':
+            $resultat = Utilisateur::creer($_POST);
+            echo json_encode(['success' => $resultat]);
+            exit();
+        
+        case 'changer_statut':
+            $resultat = Utilisateur::changerStatut($_POST['user_id'], $_POST['statut']);
+            echo json_encode(['success' => $resultat]);
+            exit();
+
+        case 'affecter_encadreur':
+            $resultat = Utilisateur::affecterEncadreur($_POST['stagiaire_id'], $_POST['encadreur_id']);
+            echo json_encode(['success' => $resultat]);
+            exit();
+
+        case 'get_utilisateur_details':
+            $details = Utilisateur::getById((int)$_POST['user_id']);
+            echo json_encode(['success' => !!$details, 'data' => $details]);
+            exit();
+
+        case 'modifier_utilisateur':
+            $resultat = Utilisateur::modifier($_POST);
+            echo json_encode(['success' => $resultat]);
+            exit();
+
+        case 'supprimer_utilisateur':
+            $resultat = Utilisateur::supprimer((int)$_POST['user_id']);
+            echo json_encode(['success' => $resultat]);
+            exit();
+
 
     }
 }
@@ -218,6 +248,12 @@ $filtre = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 $recherche = isset($_GET['search']) ? $_GET['search'] : '';
 
 switch ($onglet_actif) {
+
+    case 'gestion-utilisateurs':
+        $liste_utilisateurs = Utilisateur::listerTous($recherche);
+        $liste_encadreurs = Utilisateur::listerEncadreurs();
+        break;
+
     case 'messagerie':
         $messages = $message->getMessages($filtre, $recherche);
         $utilisateurs = $message->getUtilisateursDisponibles();
@@ -459,6 +495,7 @@ switch ($onglet_actif) {
     <link rel="stylesheet" href="css/presence.css">
     <link rel="stylesheet" href="css/dashboardEncadreur.css">
     <link rel="stylesheet" href="css/form.css">
+    <link rel="stylesheet" href="css/gestion_utilisateurs.css">
 </head>
 <body>
     <nav class="sidebar">
@@ -471,7 +508,6 @@ switch ($onglet_actif) {
         
         <ul class="sidebar-menu">
             <li class="<?php echo $onglet_actif === 'dashboard' ? 'active' : ''; ?>"><a href="?tab=dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a></li>
-           <li class="<?php echo $onglet_actif === 'gestion-utilisateurs' ? 'active' : ''; ?>"><a href="?tab=gestion-utilisateurs"><i class="fas fa-users-cog"></i><span>Utilisateurs</span></a></li>
             <li class="<?php echo $onglet_actif === 'messagerie' ? 'active' : ''; ?>">
                 <a href="?tab=messagerie">
                     <i class="fas fa-envelope"></i>
@@ -526,7 +562,15 @@ switch ($onglet_actif) {
                 <i class="fas fa-chart-bar"></i>
                 <span>Évaluations</span>
             </a>
-        </li>    
+        </li>
+        
+        <?php if ($role === 'admin'): ?>
+            <li class="<?php echo $onglet_actif === 'gestion-utilisateurs' ? 'active' : ''; ?>">
+                <a href="?tab=gestion-utilisateurs">
+                    <i class="fas fa-users-cog"></i><span>Gestion Utilisateurs</span>
+                </a>
+            </li>
+            <?php endif; ?>
         </ul>
         
         <div class="sidebar-footer">
@@ -562,6 +606,55 @@ switch ($onglet_actif) {
                     <div class="stat-card"><div class="stat-icon"><i class="fas fa-user-tie"></i></div><div class="stat-info"><h3><?php echo $stats['nb_encadreurs']; ?></h3><p>Encadreurs enregistrés</p></div></div>
                     <div class="stat-card"><div class="stat-icon"><i class="fas fa-clock"></i></div><div class="stat-info"><h3><?php echo $stats['nb_rapports_attente']; ?></h3><p>Rapports en attente</p></div></div>
                     <div class="stat-card"><div class="stat-icon"><i class="fas fa-envelope"></i></div><div class="stat-info"><h3><?php echo $nb_messages_non_lus; ?></h3><p>Messages non lus</p></div></div>
+                </div>
+
+            <?php elseif ($onglet_actif === 'gestion-utilisateurs'): ?>
+                <div class="gestion-utilisateurs-content">
+                    <div class="toolbar">
+                       <button class="btn btn-primary" onclick="ouvrirModalCreerUtilisateur()">
+                            <i class="fas fa-user-plus"></i> Ajouter un utilisateur
+                       </button>
+                        <form method="GET" class="search-form">
+                            <input type="hidden" name="tab" value="gestion-utilisateurs">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" name="search" placeholder="Rechercher par nom, email..." value="<?php echo htmlspecialchars($recherche); ?>">
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="users-list">
+                        <table>
+                            <thead><tr><th>Nom Complet</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Encadreur Assigné</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                <?php while($user_item = $liste_utilisateurs->fetch_assoc()): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($user_item['prenom'] . ' ' . $user_item['nom']); ?></td>
+                                    <td><?php echo htmlspecialchars($user_item['email']); ?></td>
+                                    <td><span class="role-badge role-<?php echo $user_item['role']; ?>"><?php echo ucfirst($user_item['role']); ?></span></td>
+                                    <td><span class="status-badge status-<?php echo $user_item['statut']; ?>"><?php echo ucfirst($user_item['statut']); ?></span></td>
+                                    <td>
+                                        <?php if($user_item['role'] === 'stagiaire') {
+                                            echo $user_item['enc_nom'] ? htmlspecialchars($user_item['enc_prenom'] . ' ' . $user_item['enc_nom']) : '<i>Non assigné</i>';
+                                        } else { echo 'N/A'; } ?>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <?php if($user_item['role'] === 'stagiaire'): ?>
+                                            <button class="btn btn-sm btn-info" title="Affecter un encadreur" onclick="ouvrirModalAffecter(<?php echo $user_item['id']; ?>, '<?php echo $user_item['encadreur_id']; ?>')"><i class="fas fa-user-tie"></i></button>
+                                        <?php endif; ?>
+                                        <button class="btn btn-sm btn-secondary" title="Modifier" onclick="ouvrirModalModifierUtilisateur(<?php echo $user_item['id']; ?>)"><i class="fas fa-edit"></i></button>
+                                        <?php if($user_item['statut'] === 'actif'): ?>
+                                            <button class="btn btn-sm btn-warning" title="Bloquer" onclick="changerStatut(<?php echo $user_item['id']; ?>, 'bloque')"><i class="fas fa-lock"></i></button>
+                                        <?php else: ?>
+                                            <button class="btn btn-sm btn-success" title="Débloquer" onclick="changerStatut(<?php echo $user_item['id']; ?>, 'actif')"><i class="fas fa-unlock"></i></button>
+                                        <?php endif; ?>
+                                        <button class="btn btn-sm btn-danger" title="Supprimer" onclick="supprimerUtilisateur(<?php echo $user_item['id']; ?>)"><i class="fas fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                                <?php endwhile; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
             
@@ -754,7 +847,7 @@ switch ($onglet_actif) {
                     </h3>
                     <div class="taches-grid">
 
-                        <?php foreach ($taches_du_jour as $t): ?>
+                    <?php foreach ($taches_du_jour as $t): ?>
                             <?php
                                 // Calculer le statut réel
                                 $statut_reel = $t['statut'];
@@ -770,18 +863,19 @@ switch ($onglet_actif) {
                                     <div class="tache-info">
                                         <div class="info-line">
                                             <i class="fas fa-user-graduate"></i>
-                                            <!-- Modification pour utiliser les nouveaux alias -->
+                                            <!-- ======================================================== -->
+                                            <!-- ==          C'EST CETTE LIGNE QUI EST CORRIGÉE          == -->
+                                            <!-- ======================================================== -->
                                             <span><?php echo htmlspecialchars($t['stagiaire_prenom'] . ' ' . $t['stagiaire_nom']); ?></span>
                                         </div>
 
-                                        <!-- BLOC AJOUTÉ POUR L'ADMIN -->
+                                        <!-- Ce bloc pour l'admin est déjà correct -->
                                         <?php if ($role === 'admin' && isset($t['encadreur_prenom'])): ?>
                                             <div class="info-line assigned-by">
                                                 <i class="fas fa-user-tie"></i>
                                                 <span>Assignée par: <?php echo htmlspecialchars($t['encadreur_prenom'] . ' ' . $t['encadreur_nom']); ?></span>
                                             </div>
                                         <?php endif; ?>
-                                        <!-- FIN DU BLOC AJOUTÉ -->
 
                                         <div class="info-line">
                                             <i class="fas fa-align-left"></i>
@@ -810,6 +904,8 @@ switch ($onglet_actif) {
                                 </div>
                             </div>
                         <?php endforeach; ?>
+
+                       
                         
                     </div>
                 </div>
@@ -1202,7 +1298,93 @@ switch ($onglet_actif) {
     <?php endif; ?>
 <?php endif; ?>
     </main>
-
+<!-- ======================================================== -->
+    <!-- ==      BLOC COMPLET DES MODALES À AJOUTER            == -->
+    <!-- ======================================================== -->
+    <div id="modalUtilisateur" class="modal">
+        <div class="modal-content large">
+            <form id="formUtilisateur">
+                <div class="modal-header">
+                    <h3 id="modalUtilisateurTitle">Créer un nouvel utilisateur</h3>
+                    <button type="button" class="modal-close" onclick="fermerModal('modalUtilisateur')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="user_action" name="action">
+                    <input type="hidden" id="user_id" name="user_id">
+                    <h4>Informations Communes</h4>
+                    <div class="form-grid">
+                        <div class="form-group"><label>Prénom *</label><input type="text" name="prenom" required></div>
+                        <div class="form-group"><label>Nom *</label><input type="text" name="nom" required></div>
+                        <div class="form-group"><label>Email *</label><input type="email" name="email" required></div>
+                        <div class="form-group"><label>Téléphone</label><input type="tel" name="telephone"></div>
+                        <div class="form-group"><label>Sexe *</label><select name="sex" required><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
+                        <div class="form-group"><label>Mot de passe *</label><input type="password" name="password" required></div>
+                    </div>
+                    <hr>
+                    <h4>Rôle et Informations Spécifiques</h4>
+                    <div class="form-group">
+                        <label>Rôle de l'utilisateur *</label>
+                        <select name="role" id="roleSelect" onchange="toggleRoleFields()" required>
+                            <option value="">-- Sélectionner un rôle --</option>
+                            <option value="stagiaire">Stagiaire</option>
+                            <option value="encadreur">Encadreur</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div id="stagiaireFields" class="role-fields" style="display: none;">
+                        <h5>Détails du Stagiaire</h5>
+                        <div class="form-grid">
+                            <div class="form-group"><label>Filière *</label><input type="text" name="filiere"></div>
+                            <div class="form-group"><label>Niveau *</label><input type="text" name="niveau"></div>
+                            <div class="form-group"><label>Date de début *</label><input type="date" name="date_debut"></div>
+                            <div class="form-group"><label>Date de fin *</label><input type="date" name="date_fin"></div>
+                        </div>
+                    </div>
+                    <div id="encadreurFields" class="role-fields" style="display: none;">
+                        <h5>Détails de l'Encadreur</h5>
+                        <div class="form-grid">
+                            <div class="form-group"><label>Poste *</label><input type="text" name="poste"></div>
+                            <div class="form-group"><label>Service *</label><input type="text" name="service"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fermerModal('modalUtilisateur')">Annuler</button>
+                    <button type="submit" class="btn btn-primary" id="modalUtilisateurSubmitBtn">Créer l'utilisateur</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="modalAffecterEncadreur" class="modal">
+        <div class="modal-content">
+            <form id="formAffecterEncadreur">
+                <div class="modal-header"><h3>Affecter un Encadreur</h3><button type="button" class="modal-close" onclick="fermerModal('modalAffecterEncadreur')">&times;</button></div>
+                <div class="modal-body">
+                    <input type="hidden" name="stagiaire_id" id="affecter_stagiaire_id">
+                    <div class="form-group">
+                        <label for="affecter_encadreur_id">Choisir un encadreur</label>
+                        <select id="affecter_encadreur_id" name="encadreur_id">
+                            <option value="">-- Aucun --</option>
+                            <?php 
+                                if (isset($liste_encadreurs) && $liste_encadreurs->num_rows > 0) {
+                                    $liste_encadreurs->data_seek(0);
+                                    while($enc = $liste_encadreurs->fetch_assoc()): 
+                                ?>
+                                    <option value="<?php echo $enc['id']; ?>"><?php echo htmlspecialchars($enc['prenom'] . ' ' . $enc['nom']); ?></option>
+                            <?php 
+                                    endwhile;
+                                } 
+                            ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fermerModal('modalAffecterEncadreur')">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <!-- Modals -->
     <div id="modalNouveauMessage" class="modal">
         <div class="modal-content">

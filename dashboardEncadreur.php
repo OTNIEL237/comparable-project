@@ -702,7 +702,7 @@ switch ($onglet_actif) {
                                     <div class="tache-info">
                                         <div class="info-line">
                                             <i class="fas fa-user-graduate"></i>
-                                            <span><?php echo htmlspecialchars($t['prenom'] . ' ' . $t['nom']); ?></span>
+                                            <span><?php echo htmlspecialchars((isset($t['prenom']) ? $t['prenom'] : '') . ' ' . (isset($t['nom']) ? $t['nom'] : '')); ?></span>
                                         </div>
                                         <div class="info-line">
                                             <i class="fas fa-align-left"></i>

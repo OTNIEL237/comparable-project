@@ -138,10 +138,11 @@ class Tache {
      * Récupère les tâches pour un encadreur, avec recherche
      */
      public function getTachesPourEncadreur($encadreur_id, $recherche = '') {
-        $sql = "SELECT t.*, u.prenom AS stagiaire_prenom, u.nom AS stagiaire_nom 
-                FROM taches t
-                JOIN utilisateurs u ON t.stagiaire_id = u.id
-                WHERE t.encadreur_id = ?";
+        // CORRECTION : Ajout des alias AS pour correspondre à la méthode de l'admin
+    $sql = "SELECT t.*, u.prenom, u.nom 
+        FROM taches t
+        JOIN utilisateurs u ON t.stagiaire_id = u.id
+        WHERE t.encadreur_id = ?";
         
         if (!empty($recherche)) {
             $sql .= " AND (t.titre LIKE ? OR u.prenom LIKE ? OR u.nom LIKE ?)";

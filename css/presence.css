@@ -1,6 +1,4 @@
-/* ===================================================================
-==        STYLES "WAOUH" POUR LE MODULE DE PRÉSENCE (V4)           ==
-=================================================================== */
+
 
 /* --- Variables de couleurs améliorées --- */
 :root {
@@ -27,6 +25,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 2rem;
+    margin-top: 2rem;
 }
 
 /* --- CARTE DE JOUR - EFFET DE FLOTTEMENT --- */
@@ -175,3 +174,50 @@
 .jour-card.status-futur .jour-status-text,
 .jour-card.status-hors_stage .jour-status-icon,
 .jour-card.status-hors_stage .jour-status-text { color: #bdc3c7; } /* Gris neutre */
+.btn.btn-semaine-actuelle {
+    background-color: var(--primary-color);
+    color: #fff;
+    border: none;
+    border-radius: 0.25rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: background-color 0.3s ease;
+    box-shadow: var(--shadow-soft);
+    margin-left: 1rem;
+    padding: 10px;
+    text-decoration: none;
+    margin-top: 1rem;
+
+
+}
+
+.btn.btn-semaine-actuelle:hover {
+    background-color: darken(var(--text-primary), 5%);
+}
+.btn.btn-nav:hover {
+    background-color:var(--danger-color);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-strong);
+}
+.semaine-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin: 0 auto;
+}
+a.btn.btn-nav {
+    background-color: var(--text-primary);
+    color: #fff;
+    border: none;
+    border-radius: 0.25rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: var(--shadow-soft);
+    text-decoration: none;
+}

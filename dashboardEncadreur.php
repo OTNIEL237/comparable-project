@@ -795,6 +795,7 @@ switch ($onglet_actif) {
                     <a href="?tab=presences&stagiaire_id=<?php echo $stagiaire_id_selectionne; ?>&date=<?php echo $semaine_prec; ?>" class="btn btn-nav"><i class="fas fa-chevron-left"></i></a>
                     <h2><?php echo $titre_semaine; ?></h2>
                     <a href="?tab=presences&stagiaire_id=<?php echo $stagiaire_id_selectionne; ?>&date=<?php echo $semaine_suiv; ?>" class="btn btn-nav"><i class="fas fa-chevron-right"></i></a>
+            
                 </div>
 
                 <div class="semaine-grid">

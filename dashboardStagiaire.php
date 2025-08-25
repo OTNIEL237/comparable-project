@@ -228,6 +228,8 @@ switch ($onglet_actif) {
     <link rel="stylesheet" href="css/themes.css">
     <link rel="stylesheet" href="css/evaluation.css">
     <link rel="stylesheet" href="css/presence.css">
+    <link rel="stylesheet" href="css/dashboard-styles.css">
+    <link rel="stylesheet" href="css/form.css">
 </head>
 <body>
     <!-- Navigation latérale - Menu principal -->
@@ -741,8 +743,9 @@ switch ($onglet_actif) {
         <div class="semaine-view">
             <div class="semaine-header">
                 <a href="?tab=presences&date=<?php echo $semaine_prec; ?>" class="btn btn-secondary"><i class="fas fa-chevron-left"></i></a>
-                <h2>Semaine du <?php echo date('d/m/Y', strtotime($semaine_data[0]['date'])); ?></h2>
                 <a href="?tab=presences&date=<?php echo $semaine_suiv; ?>" class="btn btn-secondary"><i class="fas fa-chevron-right"></i></a>
+                <h2>Semaine du <?php echo date('d/m/Y', strtotime($semaine_data[0]['date'])); ?></h2>
+                
             </div>
 
             <div class="semaine-grid">

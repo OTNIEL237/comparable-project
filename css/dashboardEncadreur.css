@@ -1,20 +1,22 @@
   :root {
-    --primary-color: #0066cc;
-    --primary-dark: #0052a3;
-    --accent-color: #dc3545; /* Red accent color */
-    --accent-dark: #bd2130;
-    --success-color: #28a745;
-    --warning-color: #ffc107;
-    --info-color: #17a2b8;
+    --primary-color: #3660a3; /* Bleu plus doux */
+    --primary-light: #4c84d8;
+    --primary-dark: #3a6fc7;
+    --accent-color: #ad3939; /* Rouge corail plus doux */
+    --accent-light: #984949;
+    --accent-dark: #f25252;
+    --success-color: #66bb6a;
+    --warning-color: #ffca28;
+    --info-color: #296da5;
     --light-color: #f8f9fa;
     --dark-color: #343a40;
-    --text-primary: #212529;
-    --text-secondary: #6c757d;
-    --background-color: #f8f9fa;
+    --text-primary: #37474f; /* Gris foncé plus doux */
+    --text-secondary: #78909c; /* Gris bleuté */
+    --background-color: #fafbfc; /* Blanc légèrement bleuté */
     --surface-color: #ffffff;
-    --border-color: #dee2e6;
-    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --border-color: #e3e9ef; /* Bordure plus douce */
+    --shadow: 0 4px 12px rgba(143, 161, 184, 0.12);
+    --shadow-lg: 0 10px 25px rgba(143, 161, 184, 0.18);
 }
 
 * {

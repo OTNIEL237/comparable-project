@@ -3,14 +3,7 @@
  * Fichier : css/forms.css
  */
 
-:root {
-    --primary-color: #0066cc;
-    --border-color: #dee2e6;
-    --text-primary: #212529;
-    --text-secondary: #6c757d;
-    --surface-color: #ffffff;
-    --light-color: #f8f9fa;
-}
+
 
 .modal-content .form-group {
     margin-bottom: 1.25rem;

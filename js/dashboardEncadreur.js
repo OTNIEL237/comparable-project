@@ -839,3 +839,72 @@ async function voirRapport(rapportId) {
         modalBody.innerHTML = `<p class="text-danger">Impossible de charger les détails du rapport.</p>`;
     }
 }
+
+async function consulterUtilisateur(userId) {
+    const modalBody = document.getElementById('utilisateurModalBody');
+    const modalTitle = document.getElementById('utilisateurModalTitle');
+
+    modalBody.innerHTML = '<div class="loading-spinner"></div>';
+    modalTitle.textContent = 'Chargement des informations...';
+    ouvrirModal('modalVoirUtilisateur');
+
+    const formData = new FormData();
+    formData.append('action', 'get_utilisateur_details');
+    formData.append('user_id', userId);
+
+    try {
+        const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        const result = await response.json();
+
+        if (result.success) {
+            const user = result.data;
+            modalTitle.textContent = `Détails de ${user.prenom} ${user.nom}`;
+            
+            let roleDetailsHtml = '';
+            if (user.role === 'stagiaire') {
+                roleDetailsHtml = `
+                    <div class="profil-card">
+                        <div class="card-header"><i class="fas fa-graduation-cap"></i><h3>Informations de Stage</h3></div>
+                        <div class="card-body">
+                            <div class="info-item"><span class="info-label">Filière :</span><span class="info-value">${user.filiere || 'N/A'}</span></div>
+                            <div class="info-item"><span class="info-label">Niveau :</span><span class="info-value">${user.niveau || 'N/A'}</span></div>
+                            <div class="info-item"><span class="info-label">Période :</span><span class="info-value">Du ${new Date(user.date_debut + 'T00:00:00').toLocaleDateString('fr-FR')} au ${new Date(user.date_fin + 'T00:00:00').toLocaleDateString('fr-FR')}</span></div>
+                        </div>
+                    </div>
+                `;
+            } else if (user.role === 'encadreur') {
+                roleDetailsHtml = `
+                    <div class="profil-card">
+                        <div class="card-header"><i class="fas fa-briefcase"></i><h3>Informations Professionnelles</h3></div>
+                        <div class="card-body">
+                            <div class="info-item"><span class="info-label">Poste :</span><span class="info-value">${user.poste || 'N/A'}</span></div>
+                            <div class="info-item"><span class="info-label">Service :</span><span class="info-value">${user.service || 'N/A'}</span></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            let contenuHtml = `
+                <div class="stagiaire-details-grid">
+                    <div class="profil-card">
+                        <div class="card-header"><i class="fas fa-id-card"></i><h3>Informations Personnelles</h3></div>
+                        <div class="card-body">
+                            <div class="info-item"><span class="info-label">Email :</span><span class="info-value">${user.email}</span></div>
+                            <div class="info-item"><span class="info-label">Téléphone :</span><span class="info-value">${user.telephone || 'Non renseigné'}</span></div>
+                            <div class="info-item"><span class="info-label">Sexe :</span><span class="info-value">${user.sex === 'M' ? 'Masculin' : 'Féminin'}</span></div>
+                            <div class="info-item"><span class="info-label">Rôle :</span><span class="info-value"><span class="role-badge role-${user.role}">${user.role}</span></span></div>
+                            <div class="info-item"><span class="info-label">Statut :</span><span class="info-value"><span class="status-badge status-${user.statut}">${user.statut}</span></span></div>
+                        </div>
+                    </div>
+                    ${roleDetailsHtml}
+                </div>
+            `;
+            modalBody.innerHTML = contenuHtml;
+
+        } else {
+            modalBody.innerHTML = `<p class="text-danger">${result.message || "Impossible de charger les informations."}</p>`;
+        }
+    } catch (error) {
+        modalBody.innerHTML = `<p class="text-danger">Erreur de communication avec le serveur.</p>`;
+    }
+}

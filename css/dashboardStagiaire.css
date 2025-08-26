@@ -115,6 +115,11 @@
             margin-right: 15px;
             font-size: 1.1rem;
         }
+        .sidebar-menu li a:hover {
+            background: rgba(220, 53, 69, 0.2); /* Touch of red on hover */
+            color: white;
+            border-left: 4px solid var(--accent-color); /* Red line on hover */
+        }
 
         .sidebar-menu a span {
             font-weight: 500;

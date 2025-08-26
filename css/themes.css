@@ -329,3 +329,7 @@
     text-align: right;
     border-top: 1px solid var(--border-color, #dee2e6);
 }
+a{
+    text-decoration: none;
+    color: inherit;
+}

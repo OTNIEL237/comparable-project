@@ -68,7 +68,7 @@ body {
 .login-header .logo img {
     max-width: 90px;
     height: auto;
-    border-radius: 50%;
+    border-radius: 25%;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 

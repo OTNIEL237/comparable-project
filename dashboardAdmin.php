@@ -648,17 +648,30 @@ switch ($onglet_actif) {
                                         } else { echo 'N/A'; } ?>
                                     </td>
                                     <td class="actions-cell">
+                                         <button class="btn btn-sm btn-info" title="Consulter" onclick="consulterUtilisateur(<?php echo $user_item['id']; ?>)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
                                         <?php if($user_item['role'] === 'stagiaire'): ?>
-                                            <button class="btn btn-sm btn-info" title="Affecter un encadreur" onclick="ouvrirModalAffecter(<?php echo $user_item['id']; ?>, '<?php echo $user_item['encadreur_id']; ?>')"><i class="fas fa-user-tie"></i></button>
+                                            <button class="btn btn-sm btn-primary" title="Affecter un encadreur" onclick="ouvrirModalAffecter(<?php echo $user_item['id']; ?>, '<?php echo $user_item['encadreur_id']; ?>')">
+                                                <i class="fas fa-user-tie"></i>
+                                            </button>
                                         <?php endif; ?>
-                                        <button class="btn btn-sm btn-secondary" title="Modifier" onclick="ouvrirModalModifierUtilisateur(<?php echo $user_item['id']; ?>)"><i class="fas fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-secondary" title="Modifier" onclick="ouvrirModalModifierUtilisateur(<?php echo $user_item['id']; ?>)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
                                         <?php if($user_item['statut'] === 'actif'): ?>
-                                            <button class="btn btn-sm btn-warning" title="Bloquer" onclick="changerStatut(<?php echo $user_item['id']; ?>, 'bloque')"><i class="fas fa-lock"></i></button>
+                                            <button class="btn btn-sm btn-warning" title="Bloquer" onclick="changerStatut(<?php echo $user_item['id']; ?>, 'bloque')">
+                                                <i class="fas fa-lock"></i>
+                                            </button>
                                         <?php else: ?>
-                                            <button class="btn btn-sm btn-success" title="Débloquer" onclick="changerStatut(<?php echo $user_item['id']; ?>, 'actif')"><i class="fas fa-unlock"></i></button>
+                                            <button class="btn btn-sm btn-success" title="Débloquer" onclick="changerStatut(<?php echo $user_item['id']; ?>, 'actif')">
+                                                <i class="fas fa-unlock"></i>
+                                            </button>
                                         <?php endif; ?>
-                                        <button class="btn btn-sm btn-danger" title="Supprimer" onclick="supprimerUtilisateur(<?php echo $user_item['id']; ?>)"><i class="fas fa-trash"></i></button>
-                                    </td>
+                                        <button class="btn btn-sm btn-danger" title="Supprimer" onclick="supprimerUtilisateur(<?php echo $user_item['id']; ?>)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        
                                 </tr>
                                 <?php endwhile; ?>
                             </tbody>
@@ -1450,6 +1463,24 @@ switch ($onglet_actif) {
                     <button type="submit" class="btn btn-primary">Enregistrer</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div id="modalVoirUtilisateur" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3 id="utilisateurModalTitle">Détails de l'Utilisateur</h3>
+                <button class="modal-close" onclick="fermerModal('modalVoirUtilisateur')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="utilisateurModalBody">
+                <!-- Le contenu détaillé de l'utilisateur sera injecté ici par JavaScript -->
+                <div class="loading-spinner"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="fermerModal('modalVoirUtilisateur')">Fermer</button>
+            </div>
         </div>
     </div>
     <!-- Modals -->

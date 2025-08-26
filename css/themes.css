@@ -333,3 +333,45 @@ a{
     text-decoration: none;
     color: inherit;
 }
+.theme-stagiaire-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding-top: 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-top: 1.5rem; /* Ajout d'un peu plus d'espace */
+}
+
+/* ===================================================================
+==        NOUVEAUX STYLES POUR LE BOUTON "VOIR LES DÉTAILS"        ==
+=================================================================== */
+.theme-stagiaire-action.btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    padding: 0.6rem 1.2rem;
+    border-radius: 50px; /* Bouton arrondi */
+    font-weight: 600;
+    backdrop-filter: blur(10px); /* Effet "verre dépoli" */
+    -webkit-backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.theme-stagiaire-action.btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.6);
+    transform: scale(1.05); /* Effet de grossissement */
+}
+
+.theme-stagiaire-action.btn i {
+    transition: transform 0.3s ease;
+}
+
+.theme-stagiaire-action.btn:hover i {
+    transform: translateX(5px); /* La flèche bouge vers la droite */
+}

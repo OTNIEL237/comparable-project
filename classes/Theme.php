@@ -30,40 +30,91 @@ class Theme {
     /**
      * Met à jour un thème existant.
      */
-    public function modifier($data) {
-        $sql = "UPDATE themes SET titre = ?, description = ?, filiere = ?, date_debut = ?, date_fin = ? 
-                WHERE id = ? AND encadreur_id = ?";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param(
-            "sssssii",
+     public static function modifier($data) { // Ajout de 'static'
+        $conn = Database::getConnection();
+
+        $theme_id = $data['theme_id'];
+        $user_id = $data['encadreur_id'];
+
+        $stmt_role = $conn->prepare("SELECT role FROM utilisateurs WHERE id = ?");
+        $stmt_role->bind_param("i", $user_id);
+        $stmt_role->execute();
+        $role = $stmt_role->get_result()->fetch_assoc()['role'];
+        
+        $sql = "UPDATE themes SET titre=?, description=?, filiere=?, date_debut=?, date_fin=? WHERE id = ?";
+        $params = [
             $data['titre'],
             $data['description'],
             $data['filiere'],
             $data['date_debut'],
             $data['date_fin'],
-            $data['theme_id'],
-            $data['encadreur_id']
-        );
+            $theme_id
+        ];
+        $types = "sssssi";
+        
+        if ($role !== 'admin') {
+            $sql .= " AND encadreur_id = ?";
+            $params[] = $user_id;
+            $types .= "i";
+        }
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        
         return $stmt->execute();
     }
-
     /**
      * Supprime un thème.
      */
-    public function supprimer($theme_id, $encadreur_id) {
-        $sql = "DELETE FROM themes WHERE id = ? AND encadreur_id = ?";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param("ii", $theme_id, $encadreur_id);
+  public static function supprimer($theme_id, $user_id) { // Ajout de 'static'
+        $conn = Database::getConnection();
+        
+        $stmt_role = $conn->prepare("SELECT role FROM utilisateurs WHERE id = ?");
+        $stmt_role->bind_param("i", $user_id);
+        $stmt_role->execute();
+        $role = $stmt_role->get_result()->fetch_assoc()['role'];
+
+        $sql = "DELETE FROM themes WHERE id = ?";
+        $params = [$theme_id];
+        $types = "i";
+
+        if ($role !== 'admin') {
+            $sql .= " AND encadreur_id = ? AND stagiaire_id IS NULL";
+            $params[] = $user_id;
+            $types .= "i";
+        }
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        
         return $stmt->execute();
     }
+
 
     /**
      * Attribue un thème à un stagiaire.
      */
-    public function attribuer($theme_id, $stagiaire_id, $encadreur_id) {
-        $sql = "UPDATE themes SET stagiaire_id = ? WHERE id = ? AND encadreur_id = ?";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param("iii", $stagiaire_id, $theme_id, $encadreur_id);
+   public static function attribuer($theme_id, $stagiaire_id, $user_id) { // Ajout de 'static'
+        $conn = Database::getConnection();
+
+        $stmt_role = $conn->prepare("SELECT role FROM utilisateurs WHERE id = ?");
+        $stmt_role->bind_param("i", $user_id);
+        $stmt_role->execute();
+        $role = $stmt_role->get_result()->fetch_assoc()['role'];
+
+        $sql = "UPDATE themes SET stagiaire_id = ? WHERE id = ? AND stagiaire_id IS NULL";
+        $params = [$stagiaire_id, $theme_id];
+        $types = "ii";
+        
+        if ($role !== 'admin') {
+            $sql .= " AND encadreur_id = ?";
+            $params[] = $user_id;
+            $types .= "i";
+        }
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+
         return $stmt->execute();
     }
 
@@ -71,13 +122,21 @@ class Theme {
      * Récupère un thème par son ID.
      */
     public function getThemeById($theme_id) {
-        $sql = "SELECT * FROM themes WHERE id = ?";
+        // CORRECTION : Ajout des jointures pour récupérer toutes les informations
+        $sql = "SELECT 
+                    th.*, 
+                    ue.prenom AS encadreur_prenom, ue.nom AS encadreur_nom,
+                    us.prenom AS stagiaire_prenom, us.nom AS stagiaire_nom
+                FROM themes th
+                JOIN utilisateurs ue ON th.encadreur_id = ue.id
+                LEFT JOIN utilisateurs us ON th.stagiaire_id = us.id
+                WHERE th.id = ?";
+        
         $stmt = $this->conn->prepare($sql);
         $stmt->bind_param("i", $theme_id);
         $stmt->execute();
         return $stmt->get_result()->fetch_assoc();
     }
-
     /**
      * Récupère tous les thèmes créés par un encadreur.
      */

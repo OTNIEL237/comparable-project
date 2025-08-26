@@ -68,7 +68,7 @@ body {
 .login-header .logo img {
     max-width: 90px;
     height: auto;
-    border-radius: 25%;
+    border-radius: 5%;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
@@ -182,4 +182,16 @@ body {
     margin: 0;
     font-size: 0.85rem;
     color: var(--text-light);
+}
+.retour{
+    display: inline-block;
+    margin-top: 2rem;
+    font-size: 1.2rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.retour:hover{
+    color: var(--danger-color);
 }

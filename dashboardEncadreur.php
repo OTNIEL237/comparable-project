@@ -105,10 +105,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         case 'modifier_theme':
             $_POST['encadreur_id'] = $user_id;
-            $theme = new Theme();
-            $resultat = $theme->modifier($_POST);
+            // CORRECTION : Appel statique avec Theme::
+            $resultat = Theme::modifier($_POST);
             echo json_encode(['success' => $resultat]);
             exit();
+
 
         case 'get_theme_details':
             $theme_id = $_POST['theme_id'];
@@ -119,19 +120,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         case 'supprimer_theme':
             $theme_id = $_POST['theme_id'];
-            $theme = new Theme();
-            $resultat = $theme->supprimer($theme_id, $user_id);
+            // CORRECTION : Appel statique avec Theme::
+            $resultat = Theme::supprimer($theme_id, $user_id);
             echo json_encode(['success' => $resultat]);
             exit();
 
-        case 'attribuer_theme':
+
+
+         case 'attribuer_theme':
             $theme_id = $_POST['theme_id'];
             $stagiaire_id = $_POST['stagiaire_id'];
-            $theme = new Theme();
-            $resultat = $theme->attribuer($theme_id, $stagiaire_id, $user_id);
+            // CORRECTION : Appel statique avec Theme::
+            $resultat = Theme::attribuer($theme_id, $stagiaire_id, $user_id);
             echo json_encode(['success' => $resultat]);
             exit();
-
+            
         case 'get_stagiaire_details':
             header('Content-Type: application/json');
             $stagiaire_id = $_POST['stagiaire_id'];
@@ -274,30 +277,40 @@ switch ($onglet_actif) {
 
     case 'gestion-theme':
         $theme = new Theme();
-        $themes = $theme->getThemesByEncadreur($user_id, $recherche);
-         $stagiaires_sql = "SELECT u.id, u.prenom, u.nom 
-                           FROM utilisateurs u 
-                           JOIN stagiaire s ON u.id = s.id_utilisateur 
-                           WHERE s.encadreur_id = ?";
         
-        $params = [$user_id];
-        $types = "i";
+        // ========================================================
+        // ==         BLOC DE LOGIQUE À REMPLACER                ==
+        // ========================================================
         
-        if (!empty($recherche)) {
-            $stagiaires_sql .= " AND (u.nom LIKE ? OR u.prenom LIKE ?)";
-            $searchTerm = "%{$recherche}%";
-            array_push($params, $searchTerm, $searchTerm);
-            $types .= "ss";
+        // Logique de récupération des thèmes en fonction du rôle
+        // MODIFICATION : L'encadreur voit maintenant tous les thèmes, comme l'admin.
+        if ($role === 'admin' || $role === 'encadreur') {
+            $themes = Theme::listerTousLesThemes($recherche);
+        } else {
+            // Garder une logique de secours si nécessaire (ou supprimer ce 'else')
+            $themes = $theme->getThemesByEncadreur($user_id, $recherche);
         }
         
-        $stagiaires_stmt = $conn->prepare($stagiaires_sql);
-        $stagiaires_stmt->bind_param($types, ...$params);
-        $stagiaires_stmt->execute();
-        $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        // On garde la liste des stagiaires pour le modal d'attribution
-        $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur WHERE s.encadreur_id = ?";
-        $stagiaires_stmt = $conn->prepare($stagiaires_sql);
-        $stagiaires_stmt->bind_param("i", $user_id);
+        // Logique pour peupler la liste des stagiaires dans les modaux d'attribution
+        if ($role === 'admin' || $role === 'encadreur') {
+            // L'admin et l'encadreur peuvent voir tous les stagiaires pour l'attribution
+            $stagiaires_sql = "SELECT u.id, u.prenom, u.nom 
+                               FROM utilisateurs u 
+                               JOIN stagiaire s ON u.id = s.id_utilisateur ORDER BY u.nom, u.prenom";
+            $stagiaires_stmt = $conn->prepare($stagiaires_sql);
+        } else {
+            // Logique de secours pour d'autres rôles potentiels
+            $stagiaires_sql = "SELECT u.id, u.prenom, u.nom 
+                               FROM utilisateurs u 
+                               JOIN stagiaire s ON u.id = s.id_utilisateur 
+                               WHERE s.encadreur_id = ? ORDER BY u.nom, u.prenom";
+            $stagiaires_stmt = $conn->prepare($stagiaires_sql);
+            $stagiaires_stmt->bind_param("i", $user_id);
+        }
+        // ========================================================
+        // ==                FIN DU BLOC REMPLACÉ                ==
+        // ========================================================
+        
         $stagiaires_stmt->execute();
         $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         break;
@@ -1055,6 +1068,9 @@ switch ($onglet_actif) {
                             <?php endif; ?>
                         </div>
                         <div class="theme-actions">
+                            <button class="btn btn-sm btn-info" onclick="voirTheme(<?php echo $th['id']; ?>)">
+                                <i class="fas fa-eye"></i> Consulter
+                            </button>
                             <button class="btn btn-sm" onclick="ouvrirModalAttribuer(<?php echo $th['id']; ?>)">
                                 <i class="fas fa-user-plus"></i> Attribuer
                             </button>
@@ -1433,6 +1449,24 @@ switch ($onglet_actif) {
                 <button type="submit" class="btn btn-success"><i class="fas fa-user-check"></i> Confirmer l'attribution</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div id="modalVoirTheme" class="modal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h3 id="themeModalTitle">Détails du Thème</h3>
+            <button class="modal-close" onclick="fermerModal('modalVoirTheme')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="themeModalBody">
+            <!-- Le contenu détaillé du thème sera injecté ici par JavaScript -->
+            <div class="loading-spinner"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="fermerModal('modalVoirTheme')">Fermer</button>
+        </div>
     </div>
 </div>
 <!-- NOUVELLE MODALE : Consulter les Détails du Stagiaire (Lecture Seule) -->

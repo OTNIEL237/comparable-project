@@ -128,6 +128,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </button>
             </form>
             <div class="login-footer">
+                <a href="index.php" class="retour">retour a la page d'accueil</a>
+            
                 <p>&copy; <?php echo date('Y'); ?> Système de Gestion des Stagiaires</p>
             </div>
         </div>

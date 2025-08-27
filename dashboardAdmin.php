@@ -207,6 +207,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             exit();
 
+        case 'supprimer_rapport':
+            if ($role !== 'admin') {
+                echo json_encode(['success' => false, 'message' => 'Accès non autorisé.']);
+                exit();
+            }
+            if (isset($_POST['rapport_id'])) {
+                $rapport_id = (int)$_POST['rapport_id'];
+                $conn = Database::getConnection();
+                
+                // On commence une transaction pour s'assurer que tout se passe bien
+                $conn->begin_transaction();
+
+                try {
+                    // 1. Récupérer le nom du fichier PDF avant de supprimer l'enregistrement
+                    $stmt_select = $conn->prepare("SELECT fichier_pdf FROM rapports WHERE id = ?");
+                    $stmt_select->bind_param("i", $rapport_id);
+                    $stmt_select->execute();
+                    $result = $stmt_select->get_result();
+                    $row = $result->fetch_assoc();
+                    $stmt_select->close();
+
+                    // 2. Supprimer l'enregistrement de la base de données
+                    $stmt_delete = $conn->prepare("DELETE FROM rapports WHERE id = ?");
+                    $stmt_delete->bind_param("i", $rapport_id);
+                    $stmt_delete->execute();
+
+                    if ($stmt_delete->affected_rows > 0) {
+                        // 3. Si la suppression en BDD a réussi, on supprime le fichier physique
+                        if ($row && !empty($row['fichier_pdf'])) {
+                            // Utiliser un chemin absolu pour plus de fiabilité
+                            $file_path = __DIR__ . '/uploads/rapports/' . $row['fichier_pdf'];
+                            if (file_exists($file_path)) {
+                                unlink($file_path);
+                            }
+                        }
+                        // Valider la transaction
+                        $conn->commit();
+                        echo json_encode(['success' => true, 'message' => 'Rapport supprimé avec succès.']);
+                    } else {
+                        // Annuler si le rapport n'a pas été trouvé
+                        $conn->rollback();
+                        echo json_encode(['success' => false, 'message' => 'Le rapport n\'a pas été trouvé ou a déjà été supprimé.']);
+                    }
+                    $stmt_delete->close();
+
+                } catch (Exception $e) {
+                    // Annuler la transaction en cas d'erreur
+                    $conn->rollback();
+                    // Log de l'erreur pour le débogage
+                    error_log('Erreur de suppression de rapport: ' . $e->getMessage());
+                    echo json_encode(['success' => false, 'message' => 'Une erreur de base de données est survenue lors de la suppression.']);
+                }
+            } else {
+                echo json_encode(['success' => false, 'message' => 'ID de rapport manquant.']);
+            }
+            exit();
+
         case 'sauvegarder_evaluation':
             $evaluation = new Evaluation();
             // On appelle la nouvelle méthode "sauvegarder"
@@ -830,6 +887,12 @@ switch ($onglet_actif) {
                         <button class="btn btn-sm btn-danger" onclick="validerRapport(<?php echo $rpt['id']; ?>, 'rejeté')">
                             <i class="fas fa-times"></i>
                             Rejeter
+                        </button>
+                    <?php endif; ?>
+                    <!-- AJOUT DU BOUTON SUPPRIMER POUR L'ADMIN -->
+                    <?php if ($role === 'admin'): ?>
+                        <button class="btn btn-sm btn-danger" title="Supprimer le rapport" onclick="supprimerRapport(event, <?php echo $rpt['id']; ?>, this)">
+                            <i class="fas fa-trash"></i> Supprimer
                         </button>
                     <?php endif; ?>
                 </div>
@@ -1879,6 +1942,39 @@ switch ($onglet_actif) {
 
     <script src="js/dashboardEncadreur.js"></script>
 
+<script>
+/**
+ * Supprime un rapport après confirmation.
+ * Cette fonction est réservée aux administrateurs.
+ * @param {Event} event - L'événement de clic pour l'arrêter.
+ * @param {number} rapportId - L'ID du rapport à supprimer.
+ * @param {HTMLElement} element - Le bouton sur lequel on a cliqué.
+ */
+function supprimerRapport(event, rapportId, element) {
+    event.stopPropagation(); // Empêche l'ouverture de la modale de détails
+    
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce rapport ? Cette action est irréversible et supprimera également le fichier PDF associé.')) {
+        const formData = new FormData();
+        formData.append('action', 'supprimer_rapport');
+        formData.append('rapport_id', rapportId);
+
+        fetch('dashboardAdmin.php', { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                afficherNotification('Rapport supprimé avec succès.', 'success');
+                const rapportItem = element.closest('.rapport-item');
+                if (rapportItem) {
+                    rapportItem.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    rapportItem.style.opacity = '0';
+                    rapportItem.style.transform = 'scale(0.95)';
+                    setTimeout(() => rapportItem.remove(), 500);
+                }
+            } else { afficherNotification(data.message || 'Erreur lors de la suppression.', 'error'); }
+        }).catch(error => afficherNotification('Une erreur technique est survenue.', 'error'));
+    }
+}
+</script>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </body>

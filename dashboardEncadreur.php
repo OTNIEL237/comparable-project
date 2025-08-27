@@ -134,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $resultat = Theme::attribuer($theme_id, $stagiaire_id, $user_id);
             echo json_encode(['success' => $resultat]);
             exit();
-            
+
         case 'get_stagiaire_details':
             header('Content-Type: application/json');
             $stagiaire_id = $_POST['stagiaire_id'];
@@ -639,6 +639,12 @@ switch ($onglet_actif) {
                                     </div>
                                     <div class="rapport-content">
                                         <h3><?php echo htmlspecialchars($rpt['titre']); ?></h3>
+                                        <?php if (!empty($rpt['tache_titre'])): ?>
+                                        <div class="linked-task">
+                                            <i class="fas fa-link"></i>
+                                            <strong>Tâche associée :</strong> <?php echo htmlspecialchars($rpt['tache_titre']); ?>
+                                        </div>
+                                    <?php endif; ?>
                                         <p><?php echo htmlspecialchars(substr($rpt['activites'], 0, 150)) . '...'; ?></p>
                                     </div>
                                     <div class="rapport-actions">

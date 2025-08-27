@@ -420,23 +420,95 @@ async function voirTheme(themeId) {
 // ==                    GESTION DES RAPPORTS                       ==
 // ===================================================================
 
-function validerRapport(rapportId, statut) {
-    document.getElementById('validationRapportId').value = rapportId;
-    document.getElementById('validationStatut').value = statut;
-    const modal = document.getElementById('modalValidationRapport');
-    modal.querySelector('.modal-header h3').textContent = statut === 'validé' ? 'Valider le rapport' : 'Rejeter le rapport';
-    const confirmBtn = modal.querySelector('button[type="submit"]');
-    confirmBtn.className = `btn btn-${statut === 'validé' ? 'success' : 'danger'}`;
-    confirmBtn.innerHTML = statut === 'validé' ? '<i class="fas fa-check"></i> Valider' : '<i class="fas fa-times"></i> Rejeter';
-    ouvrirModal('modalValidationRapport');
+// Fichiers : js/dashboardEncadreur.js ET js/dashboardStagiaire.js
+
+async function voirRapport(rapportId) {
+    const modalBody = document.getElementById('rapportModalBody');
+    const modalTitle = document.getElementById('rapportModalTitle');
+    const modalFooter = document.getElementById('rapportModalFooter');
+
+    modalBody.innerHTML = '<div class="loading-spinner"></div>';
+    modalTitle.textContent = 'Chargement du rapport...';
+    ouvrirModal('modalVoirRapport');
+
+    const formData = new FormData();
+    formData.append('action', 'get_rapport_details');
+    formData.append('rapport_id', rapportId);
+
+    try {
+        const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        const result = await response.json();
+
+        if (result.success) {
+            const rapport = result.data;
+            
+            modalTitle.textContent = rapport.titre;
+
+            // Logique pour créer la section de la tâche associée
+            let tacheAssocieeHtml = '';
+            if (rapport.tache_id && rapport.tache_titre) {
+                tacheAssocieeHtml = `
+                    <div class="linked-task-modal">
+                        <i class="fas fa-link"></i>
+                        <div>
+                            <strong>Tâche Associée</strong>
+                            <p>
+                                <a href="#" onclick="event.preventDefault(); voirTache(${rapport.tache_id})">
+                                    Voir "${rapport.tache_titre}"
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Construire le contenu HTML principal de la modale
+            let contenuHtml = `
+                <div class="rapport-details-view">
+                    <div class="rapport-meta">
+                        <div class="meta-item"><strong>Stagiaire:</strong> ${rapport.stag_prenom} ${rapport.stag_nom}</div>
+                        <div class="meta-item"><strong>Date:</strong> ${new Date(rapport.date_soumission).toLocaleDateString('fr-FR')}</div>
+                        <div class="meta-item"><strong>Type:</strong> ${rapport.type}</div>
+                        <div class="meta-item"><strong>Statut:</strong> <span class="status-badge status-${rapport.statut.replace(' ', '_')}">${rapport.statut}</span></div>
+                    </div>
+                    
+                    ${tacheAssocieeHtml}
+
+                    <hr>
+                    <h4><i class="fas fa-tasks"></i> Activités Réalisées</h4>
+                    <p class="section-content">${rapport.activites.replace(/\n/g, '<br>')}</p>
+                    <hr>
+                    <h4><i class="fas fa-exclamation-triangle"></i> Difficultés Rencontrées</h4>
+                    <p class="section-content">${rapport.difficultes.replace(/\n/g, '<br>')}</p>
+                    <hr>
+                    <h4><i class="fas fa-lightbulb"></i> Solutions Apportées</h4>
+                    <p class="section-content">${rapport.solutions.replace(/\n/g, '<br>')}</p>
+            `;
+
+            if (rapport.commentaire_encadreur) {
+                contenuHtml += `
+                    <hr>
+                    <h4><i class="fas fa-comments"></i> Commentaire de l'Encadreur</h4>
+                    <p class="section-content comment">${rapport.commentaire_encadreur.replace(/\n/g, '<br>')}</p>
+                `;
+            }
+            
+            contenuHtml += `</div>`;
+            modalBody.innerHTML = contenuHtml;
+            
+            // Mettre à jour le pied de page
+            modalFooter.innerHTML = `
+                <button type="button" class="btn btn-secondary" onclick="fermerModal('modalVoirRapport')">Fermer</button>
+                <a href="telecharger_rapport.php?id=${rapport.id}" class="btn btn-primary"><i class="fas fa-download"></i> Télécharger PDF</a>
+            `;
+
+        } else {
+            modalBody.innerHTML = `<p class="text-danger">${result.message}</p>`;
+        }
+    } catch (error) {
+        modalBody.innerHTML = `<p class="text-danger">Impossible de charger les détails du rapport.</p>`;
+    }
 }
-
-async function confirmerValidationRapport() {
-    const form = document.getElementById('formValidationRapport');
-    await soumettreFormulaire(form, 'valider_rapport', 'Statut du rapport mis à jour !', 'modalValidationRapport');
-}
-
-
 
 // ===================================================================
 // ==                  GESTION DES UTILISATEURS                     ==

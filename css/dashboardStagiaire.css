@@ -1249,3 +1249,35 @@
             font-style: italic;
             color: var(--text-primary);
         }
+
+/* Style pour la tâche associée dans la modale de rapport */
+.linked-task-modal {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-left: 4px solid #007bff;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.linked-task-modal i {
+    font-size: 1.5rem;
+    color: #007bff;
+}
+
+.linked-task-modal strong {
+    display: block;
+    color: #6c757d;
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+}
+
+.linked-task-modal p {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #212529;
+}
+

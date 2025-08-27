@@ -37,31 +37,28 @@ class Rapport {
      * @param string $solutions Solutions apportées
      * @return array Résultat avec succès et message
      */
-    public function creer($type, $titre, $activites, $difficultes, $solutions) {
+    public function creer($type, $titre, $activites, $difficultes, $solutions, $tache_id = null) {
         try {
             $this->conn->begin_transaction();
            
-            // 1. Récupérer les informations du stagiaire et de son encadreur
             $info_stagiaire = $this->getInfoStagiaire();
             if (!$info_stagiaire) {
                 throw new Exception("Stagiaire non trouvé ou pas d'encadreur assigné");
             }
            
-            // 2. Insérer le rapport en base de données avec statut 'en attente'
-            $sql = "INSERT INTO rapports (stagiaire_id, type, titre, activites, difficultes, solutions, date_soumission, statut)
-                    VALUES (?, ?, ?, ?, ?, ?, NOW(), 'en attente')";
+            // NOUVEAU : On s'assure que tache_id est NULL s'il est vide
+            $tache_id = empty($tache_id) ? null : (int)$tache_id;
+
+            // REQUÊTE MISE À JOUR pour inclure tache_id
+            $sql = "INSERT INTO rapports (stagiaire_id, tache_id, type, titre, activites, difficultes, solutions, date_soumission, statut)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 'en attente')";
             $stmt = $this->conn->prepare($sql);
             
-            if (!$stmt) {
-                throw new Exception("Erreur de préparation de la requête: " . $this->conn->error);
-            }
-            
-            $stmt->bind_param("isssss", $this->stagiaire_id, $type, $titre, $activites, $difficultes, $solutions);
+            $stmt->bind_param("iisssss", $this->stagiaire_id, $tache_id, $type, $titre, $activites, $difficultes, $solutions);
            
             if (!$stmt->execute()) {
                 throw new Exception("Erreur lors de l'insertion du rapport: " . $stmt->error);
             }
-           
             $rapport_id = $this->conn->insert_id;
            
             // 3. Générer le PDF si TCPDF est disponible
@@ -322,16 +319,19 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
      * @param int $rapport_id ID du rapport
      * @return array|null Données du rapport ou null
      */
-    public static function getRapportById($rapport_id, $user_id, $role) {
+     public static function getRapportById($rapport_id, $user_id, $role) {
         $conn = Database::getConnection();
         
+        // CORRECTION : Ajout de la jointure avec la table 'taches' et de l'alias 'tache_titre'
         $sql = "SELECT r.*,
                        us.nom AS stag_nom, us.prenom AS stag_prenom,
-                       ue.nom AS enc_nom, ue.prenom AS enc_prenom
+                       ue.nom AS enc_nom, ue.prenom AS enc_prenom,
+                       t.titre AS tache_titre 
                 FROM rapports r
                 JOIN utilisateurs us ON r.stagiaire_id = us.id
                 LEFT JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur
                 LEFT JOIN utilisateurs ue ON s.encadreur_id = ue.id
+                LEFT JOIN taches t ON r.tache_id = t.id
                 WHERE r.id = ?";
         
         $stmt = $conn->prepare($sql);
@@ -345,7 +345,6 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
 
         // Vérification des permissions
         if ($role === 'stagiaire') {
-            // Un stagiaire ne peut voir que ses propres rapports
             if ($rapport['stagiaire_id'] != $user_id) {
                 return null;
             }
@@ -356,13 +355,20 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
             $stmt_check->bind_param("ii", $rapport['stagiaire_id'], $user_id);
             $stmt_check->execute();
             if ($stmt_check->get_result()->fetch_row()[0] == 0) {
-                return null; // Ce n'est pas son stagiaire
+                 // Sauf si c'est un admin qui utilise ce dashboard
+                $user_role_check_stmt = $conn->prepare("SELECT role FROM utilisateurs WHERE id = ?");
+                $user_role_check_stmt->bind_param("i", $user_id);
+                $user_role_check_stmt->execute();
+                $user_role_check = $user_role_check_stmt->get_result()->fetch_assoc();
+                if ($user_role_check['role'] !== 'admin') {
+                    return null;
+                }
             }
         }
+        // Pour l'admin, aucune restriction, il peut tout voir.
         
         return $rapport;
     }
-
     /**
      * Méthodes statiques pour l'encadreur
      */
@@ -376,12 +382,13 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
      */
     public static function getRapportsEncadreur($encadreur_id, $filtre = 'all', $recherche = '') {
         $conn = Database::getConnection();
-       
-$sql = "SELECT r.*, 
-                   us.nom AS stag_nom, us.prenom AS stag_prenom
+        $sql = "SELECT r.*, 
+                   us.nom AS stag_nom, us.prenom AS stag_prenom,
+                   t.titre AS tache_titre -- NOUVEAU : On récupère le titre de la tâche
             FROM rapports r
             JOIN utilisateurs us ON r.stagiaire_id = us.id
             JOIN stagiaire s ON us.id = s.id_utilisateur
+            LEFT JOIN taches t ON r.tache_id = t.id -- NOUVEAU : Jointure avec la table des tâches
             WHERE s.encadreur_id = ?";
        
         $params = [$encadreur_id];
@@ -452,17 +459,17 @@ $sql = "SELECT r.*,
 
     public static function listerTousLesRapports($filtre = 'all', $recherche = '') {
         $conn = Database::getConnection();
-       
-        // La requête sélectionne aussi le nom de l'encadreur
         $sql = "SELECT r.*, 
                    us.nom AS stag_nom, us.prenom AS stag_prenom,
-                   ue.nom AS enc_nom, ue.prenom AS enc_prenom
+                   ue.nom AS enc_nom, ue.prenom AS enc_prenom,
+                   t.titre AS tache_titre -- NOUVEAU : On récupère le titre de la tâche
             FROM rapports r
             JOIN utilisateurs us ON r.stagiaire_id = us.id
             LEFT JOIN stagiaire s ON us.id = s.id_utilisateur
             LEFT JOIN utilisateurs ue ON s.encadreur_id = ue.id
+            LEFT JOIN taches t ON r.tache_id = t.id -- NOUVEAU : Jointure avec la table des tâches
             WHERE 1=1"; // Commence par une condition toujours vraie pour faciliter l'ajout des filtres
-       
+
         $params = [];
         $types = "";
        

@@ -42,6 +42,11 @@ $stmt = $conn->prepare($nb_taches_en_cours_sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $nb_taches_en_cours = $stmt->get_result()->fetch_assoc()['count'];
+$taches_actives_sql = "SELECT id, titre FROM taches WHERE stagiaire_id = ? AND statut IN ('en_attente', 'en_retard') ORDER BY date_echeance ASC";
+$stmt_taches = $conn->prepare($taches_actives_sql);
+$stmt_taches->bind_param("i", $user_id);
+$stmt_taches->execute();
+$taches_actives = $stmt_taches->get_result()->fetch_all(MYSQLI_ASSOC);
 
 
 // Traitement des actions AJAX pour messagerie et rapports
@@ -67,8 +72,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $activites = $_POST['activites'];
             $difficultes = $_POST['difficultes'];
             $solutions = $_POST['solutions'];
+            $tache_id = $_POST['tache_id'] ?? null; // NOUVEAU : Récupérer l'ID de la tâche
            
-            $resultat = $rapport->creer($type, $titre, $activites, $difficultes, $solutions);
+            $resultat = $rapport->creer($type, $titre, $activites, $difficultes, $solutions, $tache_id); // NOUVEAU : Passer l'ID à la méthode
             echo json_encode($resultat);
             exit();
 
@@ -143,6 +149,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit();
 
         }
+
+       
+
+
+
+
+            
         
 }
 
@@ -903,7 +916,7 @@ switch ($onglet_actif) {
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <form id="formNouveauRapport">
+                        <form id="formNouveauRapport">
                 <div class="modal-body">
                     <div class="form-group">
                         <label>Type de rapport</label>
@@ -918,6 +931,23 @@ switch ($onglet_actif) {
                         <label>Titre</label>
                         <input type="text" name="titre" required>
                     </div>
+
+                    <!-- ======================================================== -->
+                    <!-- ==        NOUVEAU CHAMP POUR LIER LA TÂCHE            == -->
+                    <!-- ======================================================== -->
+                    <div class="form-group">
+                        <label>Associer à une tâche (optionnel)</label>
+                        <select name="tache_id">
+                            <option value="">Aucune tâche spécifique</option>
+                            <?php foreach ($taches_actives as $tache_item): ?>
+                                <option value="<?php echo $tache_item['id']; ?>">
+                                    <?php echo htmlspecialchars($tache_item['titre']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <!-- ======================================================== -->
+
                     <div class="form-group">
                         <label>Activités réalisées</label>
                         <textarea name="activites" rows="4" required></textarea>
@@ -941,6 +971,7 @@ switch ($onglet_actif) {
                     </button>
                 </div>
             </form>
+            
         </div>
     </div>
 

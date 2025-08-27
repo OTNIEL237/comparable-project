@@ -807,6 +807,12 @@ switch ($onglet_actif) {
                 </div>
                 <div class="rapport-content">
                     <h3><?php echo htmlspecialchars($rpt['titre']); ?></h3>
+                     <?php if (!empty($rpt['tache_titre'])): ?>
+                                        <div class="linked-task">
+                                            <i class="fas fa-link"></i>
+                                            <strong>Tâche associée :</strong> <?php echo htmlspecialchars($rpt['tache_titre']); ?>
+                                        </div>
+                                    <?php endif; ?>
                     <p><?php echo htmlspecialchars(substr($rpt['activites'], 0, 150)) . '...'; ?></p>
                 </div>
                 <div class="rapport-actions">

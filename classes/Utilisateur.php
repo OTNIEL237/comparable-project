@@ -27,7 +27,7 @@ class Utilisateur {
                        FROM utilisateurs u
                        LEFT JOIN encadreur enc ON u.id = enc.id_utilisateur
                        WHERE u.id = ?";
-        } else {
+        } else { // Admin
             $query .= " FROM utilisateurs u WHERE u.id = ?";
         }
         
@@ -121,15 +121,25 @@ class Utilisateur {
         $conn = Database::getConnection();
         $conn->begin_transaction();
         try {
-            $password_en_clair = $data['password'];
+            // Hacher le mot de passe avant de l'insérer
+            $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
             
             $sql_user = "INSERT INTO utilisateurs (nom, prenom, email, password, role, sex, telephone) 
                          VALUES (?, ?, ?, ?, ?, ?, ?)";
             $stmt_user = $conn->prepare($sql_user);
-            $stmt_user->bind_param("sssssss", $data['nom'], $data['prenom'], $data['email'], $password_en_clair, $data['role'], $data['sex'], $data['telephone']);
+            $stmt_user->bind_param(
+                "sssssss", 
+                $data['nom'], 
+                $data['prenom'], 
+                $data['email'], 
+                $hashed_password, // Utiliser le mot de passe haché ici
+                $data['role'], 
+                $data['sex'], 
+                $data['telephone']
+            );
             
             if (!$stmt_user->execute()) {
-                throw new Exception("Impossible de créer l'utilisateur. L'email existe peut-être déjà.");
+                throw new Exception("Impossible de créer l'utilisateur. L'email existe peut-être déjà ou autre erreur de BDD.");
             }
             $user_id = $conn->insert_id;
             
@@ -151,7 +161,11 @@ class Utilisateur {
         } catch (Exception $e) {
             $conn->rollback();
             error_log('Erreur création utilisateur: ' . $e->getMessage());
-            return false;
+            // Retourner un message plus spécifique si c'est une erreur de duplicata d'email
+            if ($e->getCode() === 1062) { // Code d'erreur MySQL pour duplicata (peut varier)
+                return ['success' => false, 'message' => 'L\'adresse email existe déjà.'];
+            }
+            return ['success' => false, 'message' => 'Une erreur est survenue lors de la création de l\'utilisateur.'];
         }
     }
     
@@ -173,11 +187,18 @@ class Utilisateur {
     public static function affecterEncadreur($stagiaire_id, $encadreur_id)
     {
         $conn = Database::getConnection();
+        // Utiliser NULL si $encadreur_id est vide pour désaffecter
         $enc_id = empty($encadreur_id) ? null : (int)$encadreur_id;
         
         $sql = "UPDATE stagiaire SET encadreur_id = ? WHERE id_utilisateur = ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ii", $enc_id, $stagiaire_id);
+        
+        if ($enc_id === null) { // Pour bind_param, null doit être géré avec 's'
+            $stmt->bind_param("si", $enc_id, $stagiaire_id);
+        } else {
+            $stmt->bind_param("ii", $enc_id, $stagiaire_id);
+        }
+        
         return $stmt->execute();
     }
     
@@ -218,9 +239,24 @@ class Utilisateur {
         $conn->begin_transaction();
         try {
             // Mise à jour de la table 'utilisateurs'
-            $sql_user = "UPDATE utilisateurs SET nom = ?, prenom = ?, email = ?, sex = ?, telephone = ? WHERE id = ?";
+            $sql_user = "UPDATE utilisateurs SET nom = ?, prenom = ?, email = ?, sex = ?, telephone = ?";
+            $params = [$data['nom'], $data['prenom'], $data['email'], $data['sex'], $data['telephone']];
+            $types = "sssss";
+
+            // Si un nouveau mot de passe est fourni, on le hache et on le met à jour
+            if (!empty($data['password'])) {
+                $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
+                $sql_user .= ", password = ?";
+                $params[] = $hashed_password;
+                $types .= "s";
+            }
+            
+            $sql_user .= " WHERE id = ?";
+            $params[] = $data['user_id'];
+            $types .= "i";
+
             $stmt_user = $conn->prepare($sql_user);
-            $stmt_user->bind_param("sssssi", $data['nom'], $data['prenom'], $data['email'], $data['sex'], $data['telephone'], $data['user_id']);
+            $stmt_user->bind_param($types, ...$params);
             $stmt_user->execute();
             
             // Mise à jour de la table de rôle spécifique
@@ -236,19 +272,16 @@ class Utilisateur {
                 $stmt_role->execute();
             }
             
-            // Si un nouveau mot de passe est fourni, on le met à jour
-            if (!empty($data['password'])) {
-                $sql_pass = "UPDATE utilisateurs SET password = ? WHERE id = ?";
-                $stmt_pass = $conn->prepare($sql_pass);
-                $stmt_pass->bind_param("si", $data['password'], $data['user_id']); // Mot de passe en clair
-                $stmt_pass->execute();
-            }
-            
             $conn->commit();
             return true;
         } catch (Exception $e) {
             $conn->rollback();
-            return false;
+            error_log('Erreur modification utilisateur: ' . $e->getMessage());
+            // Retourner un message plus spécifique si c'est une erreur de duplicata d'email
+            if ($e->getCode() === 1062) { // Code d'erreur MySQL pour duplicata (peut varier)
+                return ['success' => false, 'message' => 'L\'adresse email existe déjà.'];
+            }
+            return ['success' => false, 'message' => 'Une erreur est survenue lors de la modification de l\'utilisateur.'];
         }
     }
 
@@ -264,5 +297,3 @@ class Utilisateur {
         return $stmt->execute();
     }
 }
-
-?>

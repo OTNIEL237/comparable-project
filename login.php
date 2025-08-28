@@ -14,7 +14,7 @@ $error_message = '';
 // Le formulaire a-t-il été soumis ?
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+    $password = $_POST['password'] ?? ''; // C'est le mot de passe en clair soumis par l'utilisateur
     $role = $_POST['role'] ?? '';
 
     // 1. Validation simple des champs
@@ -40,7 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error_message = 'Votre compte a été bloqué. Veuillez contacter un administrateur.';
                 }
                 // 4. VÉRIFICATION DU MOT DE PASSE (si le compte n'est pas bloqué)
-                elseif ($password === $user['password']) {
+                // Uilise password_verify() pour comparer le mot de passe soumis (en clair) avec le hachage stocké
+                elseif (password_verify($password, $user['password'])) {
                     // Le mot de passe est correct, la connexion réussit
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['nom'] = $user['nom'];
@@ -52,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     header('Location: dashboard' . ucfirst($user['role']) . '.php');
                     exit();
                 } else {
-                    // Le mot de passe est incorrect
+                    // Le mot de passe est incorrect (soit pas trouvé, soit password_verify a échoué)
                     $error_message = 'L\'adresse email ou le mot de passe est incorrect.';
                 }
             } else {

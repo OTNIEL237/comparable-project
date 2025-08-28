@@ -873,26 +873,26 @@ switch ($onglet_actif) {
                     <p><?php echo htmlspecialchars(substr($rpt['activites'], 0, 150)) . '...'; ?></p>
                 </div>
                 <div class="rapport-actions">
-                        <button class="btn btn-sm" onclick="voirRapport(<?php echo $rpt['id']; ?>)">
-                            <i class="fas fa-eye"></i> Voir
+                        <button class="btn btn-sm" onclick="voirRapport(<?php echo $rpt['id']; ?>)" title="Consulter">
+                            <i class="fas fa-eye"></i> 
                         </button>
-                        <a href="telecharger_rapport.php?id=<?= $rpt['id'] ?>" class="btn btn-sm btn-download">
-                            <i class="fas fa-download"></i> PDF
+                        <a href="telecharger_rapport.php?id=<?= $rpt['id'] ?>" class="btn btn-sm btn-download" title="Télécharger">
+                            <i class="fas fa-download"></i> 
                         </a>
                                     <?php if ($rpt['statut'] === 'en attente'): ?>
-                        <button class="btn btn-sm btn-success" onclick="validerRapport(<?php echo $rpt['id']; ?>, 'validé')">
+                        <button class="btn btn-sm btn-success" onclick="validerRapport(<?php echo $rpt['id']; ?>, 'validé')" title="Valider">
                             <i class="fas fa-check"></i>
-                            Valider
+                            
                         </button>
-                        <button class="btn btn-sm btn-danger" onclick="validerRapport(<?php echo $rpt['id']; ?>, 'rejeté')">
+                        <button class="btn btn-sm btn-danger" onclick="validerRapport(<?php echo $rpt['id']; ?>, 'rejeté')" title="Rejeter">
                             <i class="fas fa-times"></i>
-                            Rejeter
+                            
                         </button>
                     <?php endif; ?>
                     <!-- AJOUT DU BOUTON SUPPRIMER POUR L'ADMIN -->
                     <?php if ($role === 'admin'): ?>
-                        <button class="btn btn-sm btn-danger" title="Supprimer le rapport" onclick="supprimerRapport(event, <?php echo $rpt['id']; ?>, this)">
-                            <i class="fas fa-trash"></i> Supprimer
+                        <button class="btn btn-sm btn-danger" title="Supprimer" onclick="supprimerRapport(event, <?php echo $rpt['id']; ?>, this)">
+                            <i class="fas fa-trash"></i> 
                         </button>
                     <?php endif; ?>
                 </div>
@@ -985,14 +985,14 @@ switch ($onglet_actif) {
                                 <div class="tache-card-footer">
                                     <span class="status-badge status-<?php echo $statut_reel; ?>"><?php echo str_replace('_', ' ', $statut_reel); ?></span>
                                     <div class="tache-actions">
-                                        <button class="btn btn-sm btn-info" onclick="voirTache(<?php echo $t['id']; ?>)">
-                                            <i class="fas fa-eye"></i> Consulter
+                                        <button class="btn btn-sm btn-info" onclick="voirTache(<?php echo $t['id']; ?>)" title="Consulter">
+                                            <i class="fas fa-eye"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-secondary" onclick="modifierTache(<?php echo $t['id']; ?>)">
-                                            <i class="fas fa-edit"></i> Modifier
+                                        <button class="btn btn-sm btn-secondary" onclick="modifierTache(<?php echo $t['id']; ?>)" title="Modifier">
+                                            <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-danger" onclick="supprimerTache(<?php echo $t['id']; ?>)">
-                                            <i class="fas fa-trash"></i> Supprimer
+                                        <button class="btn btn-sm btn-danger" onclick="supprimerTache(<?php echo $t['id']; ?>)" title="Supprimer">
+                                            <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -1154,10 +1154,6 @@ switch ($onglet_actif) {
         </div>
     </div>
 
-
-
-
-
     <?php elseif ($onglet_actif === 'profil'): ?>
     <div class="profil-content">
         <div class="profil-header">
@@ -1288,15 +1284,15 @@ switch ($onglet_actif) {
                         </div>
                         <!-- ACTIONS SÉPARÉES -->
                         <div class="stagiaire-actions">
-                            <button class="btn btn-sm btn-secondary" onclick="consulterStagiaire(<?php echo $stag['id']; ?>)">
-                                <i class="fas fa-eye"></i> Consulter
+                            <button class="btn btn-sm btn-secondary" onclick="consulterStagiaire(<?php echo $stag['id']; ?>)" title="Consulter">
+                                <i class="fas fa-eye"></i>
                             </button>
                             <?php 
                                 // On passe le nom du stagiaire en paramètre pour l'afficher dans le titre de la modale
                                 $stagiaireNomComplet = htmlspecialchars($stag['prenom'] . ' ' . $stag['nom'], ENT_QUOTES);
                             ?>
-                            <button class="btn btn-sm btn-primary" onclick="ouvrirModalAttribuerAStagiaire(<?php echo $stag['id']; ?>, '<?php echo $stagiaireNomComplet; ?>')">
-                                <i class="fas fa-lightbulb"></i> Attribuer Thème
+                            <button class="btn btn-sm btn-primary" onclick="ouvrirModalAttribuerAStagiaire(<?php echo $stag['id']; ?>, '<?php echo $stagiaireNomComplet; ?>')" title="Attribuer Thème">
+                                <i class="fas fa-lightbulb"></i> 
                             </button>
                         </div>
                     </div>
@@ -1366,17 +1362,17 @@ switch ($onglet_actif) {
                             <?php endif; ?>
                         </div>
                         <div class="theme-actions">
-                            <button class="btn btn-sm btn-info" onclick="voirTheme(<?php echo $th['id']; ?>)">
-                                <i class="fas fa-eye"></i> Consulter
+                            <button class="btn btn-sm btn-info" onclick="voirTheme(<?php echo $th['id']; ?>)" title="Consulter">
+                                <i class="fas fa-eye"></i> 
                             </button>
-                            <button class="btn btn-sm btn-primary" onclick="ouvrirModalAttribuer(<?php echo $th['id']; ?>)">
-                                <i class="fas fa-user-plus"></i> Attribuer
+                            <button class="btn btn-sm btn-primary" onclick="ouvrirModalAttribuer(<?php echo $th['id']; ?>)" title="Attribuer">
+                                <i class="fas fa-user-plus"></i> 
                             </button>
-                            <button class="btn btn-sm btn-secondary" onclick="ouvrirModalTheme(<?php echo $th['id']; ?>)">
-                                <i class="fas fa-edit"></i> Modifier
+                            <button class="btn btn-sm btn-secondary" onclick="ouvrirModalTheme(<?php echo $th['id']; ?>)" title="Modifier">
+                                <i class="fas fa-edit"></i> 
                             </button>
-                            <button class="btn btn-sm btn-danger" onclick="supprimerTheme(<?php echo $th['id']; ?>)">
-                                <i class="fas fa-trash"></i> Supprimer
+                            <button class="btn btn-sm btn-danger" onclick="supprimerTheme(<?php echo $th['id']; ?>)" title="Supprimer">
+                                <i class="fas fa-trash"></i> 
                             </button>
                         </div>
                     </div>

@@ -1951,3 +1951,115 @@ body {
     font-weight: 500;
     color: #212529;
 }
+.rapport-details-view .section-content.comment {
+            background-color: #fef3c7;
+            border-left: 3px solid var(--warning-color);
+            padding: 1rem;
+            border-radius: 6px;
+            font-style: italic;
+            color: var(--text-primary);
+        }
+
+/* ================================================================= */
+/* ==         STYLES AMÉLIORÉS POUR LA LISTE DES RAPPORTS         == */
+/* ================================================================= */
+
+.rapports-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding-top: 1rem;
+}
+
+.rapport-card {
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+}
+
+.rapport-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.rapport-card-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.rapport-card-header h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rapport-card-body {
+    padding: 20px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.rapport-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.rapport-meta .date {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Badges de statut et de type */
+.status-badge, .type-badge {
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.type-badge {
+    background-color: #e7e9ec;
+    color: #555;
+}
+
+.status-badge {
+    color: #fff;
+}
+
+.status-en_attente, .status-en-attente {
+    background-color: var(--primary-color);
+}
+
+.status-validé {
+    background-color: var(--success-color);
+}
+
+.status-rejeté {
+    background-color: var(--accent-color);
+}
+
+.rapport-card-footer {
+    padding: 15px 20px;
+    background-color: #f8f9fa;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}

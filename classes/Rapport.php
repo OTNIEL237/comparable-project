@@ -35,6 +35,7 @@ class Rapport {
      * @param string $activites Activités réalisées
      * @param string $difficultes Difficultés rencontrées
      * @param string $solutions Solutions apportées
+     * @param int|null $tache_id ID de la tâche associée
      * @return array Résultat avec succès et message
      */
     public function creer($type, $titre, $activites, $difficultes, $solutions, $tache_id = null) {
@@ -46,10 +47,21 @@ class Rapport {
                 throw new Exception("Stagiaire non trouvé ou pas d'encadreur assigné");
             }
            
-            // NOUVEAU : On s'assure que tache_id est NULL s'il est vide
             $tache_id = empty($tache_id) ? null : (int)$tache_id;
 
-            // REQUÊTE MISE À JOUR pour inclure tache_id
+            // Fetch task title if ID is provided
+            $tache_titre = null;
+            if ($tache_id) {
+                $tache_sql = "SELECT titre FROM taches WHERE id = ?";
+                $tache_stmt = $this->conn->prepare($tache_sql);
+                $tache_stmt->bind_param("i", $tache_id);
+                $tache_stmt->execute();
+                $tache_result = $tache_stmt->get_result();
+                if ($tache_result->num_rows > 0) {
+                    $tache_titre = $tache_result->fetch_assoc()['titre'];
+                }
+            }
+
             $sql = "INSERT INTO rapports (stagiaire_id, tache_id, type, titre, activites, difficultes, solutions, date_soumission, statut)
                     VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 'en attente')";
             $stmt = $this->conn->prepare($sql);
@@ -61,24 +73,21 @@ class Rapport {
             }
             $rapport_id = $this->conn->insert_id;
            
-            // 3. Générer le PDF si TCPDF est disponible
             $nom_fichier_pdf = null;
             if (TCPDF_AVAILABLE) {
                 try {
-                    $nom_fichier_pdf = $this->genererPDF($rapport_id, $type, $titre, $activites, $difficultes, $solutions, $info_stagiaire);
+                    // Pass task title to PDF generation
+                    $nom_fichier_pdf = $this->genererPDF($rapport_id, $type, $titre, $activites, $difficultes, $solutions, $info_stagiaire, $tache_titre);
                     
-                    // 4. Mettre à jour le rapport avec le chemin du PDF
                     $sql_update = "UPDATE rapports SET fichier_pdf = ? WHERE id = ?";
                     $stmt_update = $this->conn->prepare($sql_update);
                     $stmt_update->bind_param("si", $nom_fichier_pdf, $rapport_id);
                     $stmt_update->execute();
                 } catch (Exception $pdf_error) {
                     error_log("Erreur génération PDF: " . $pdf_error->getMessage());
-                    // On continue sans PDF
                 }
             }
            
-            // 5. Envoyer une notification à l'encadreur via message
             $this->envoyerNotificationEncadreur($info_stagiaire, $titre, $nom_fichier_pdf);
            
             $this->conn->commit();
@@ -103,47 +112,38 @@ class Rapport {
     /**
      * Générer le PDF du rapport (seulement si TCPDF est disponible)
      */
-    private function genererPDF($rapport_id, $type, $titre, $activites, $difficultes, $solutions, $info_stagiaire) {
+    private function genererPDF($rapport_id, $type, $titre, $activites, $difficultes, $solutions, $info_stagiaire, $tache_titre = null) {
         if (!TCPDF_AVAILABLE) {
             throw new Exception("TCPDF n'est pas disponible");
         }
         
-        // Créer une nouvelle instance TCPDF
         $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
        
-        // Informations du document
         $pdf->SetCreator('Système de Gestion des Stagiaires');
         $pdf->SetAuthor($info_stagiaire['prenom'] . ' ' . $info_stagiaire['nom']);
         $pdf->SetTitle('Rapport de stage - ' . $titre);
         $pdf->SetSubject('Rapport ' . $type);
        
-        // Supprimer header et footer par défaut
         $pdf->setPrintHeader(false);
         $pdf->setPrintFooter(false);
        
-        // Ajouter une page
         $pdf->AddPage();
        
-        // Définir la police
-        $pdf->SetFont('helvetica', '', 12);
+        $pdf->SetFont('helvetica', '', 11);
        
-        // Contenu HTML du PDF
-        $html = $this->genererContenuHTML($type, $titre, $activites, $difficultes, $solutions, $info_stagiaire);
+        // Pass task title to HTML generation
+        $html = $this->genererContenuHTML($type, $titre, $activites, $difficultes, $solutions, $info_stagiaire, $tache_titre);
        
-        // Écrire le contenu HTML
         $pdf->writeHTML($html, true, false, true, false, '');
        
-        // Générer le nom du fichier
         $nom_fichier = 'rapport_' . $this->stagiaire_id . '_' . $rapport_id . '_' . date('Y-m-d_H-i-s') . '.pdf';
         $chemin_complet = __DIR__ . '/../uploads/rapports/' . $nom_fichier;
        
-        // Créer le dossier s'il n'existe pas
         $dossier_upload = __DIR__ . '/../uploads/rapports/';
         if (!is_dir($dossier_upload)) {
             mkdir($dossier_upload, 0777, true);
         }
        
-        // Sauvegarder le PDF
         $pdf->Output($chemin_complet, 'F');
        
         return $nom_fichier;
@@ -152,54 +152,132 @@ class Rapport {
     /**
      * Générer le contenu HTML pour le PDF
      */
-    private function genererContenuHTML($type, $titre, $activites, $difficultes, $solutions, $info_stagiaire) {
+    private function genererContenuHTML($type, $titre, $activites, $difficultes, $solutions, $info_stagiaire, $tache_titre = null) {
         $date_actuelle = date('d/m/Y');
         $type_formate = ucfirst($type);
-       
+        $nom_stagiaire = htmlspecialchars($info_stagiaire['prenom'] . ' ' . $info_stagiaire['nom']);
+        $nom_encadreur = htmlspecialchars(($info_stagiaire['enc_prenom'] ?? '') . ' ' . ($info_stagiaire['enc_nom'] ?? ''));
+
+        $tache_html = '';
+        if ($tache_titre) {
+            $tache_html = '
+            <tr>
+                <td class="info-label">Tâche associée :</td>
+                <td class="info-value">' . htmlspecialchars($tache_titre) . '</td>
+            </tr>';
+        }
+
         $html = '
         <style>
-            .header { text-align: center; margin-bottom: 30px; }
-            .title { font-size: 18px; font-weight: bold; color: #0d47a1; }
-            .subtitle { font-size: 14px; color: #666; margin-top: 5px; }
-            .info-box { background-color: #f5f5f5; padding: 15px; margin: 20px 0; }
-            .section { margin: 20px 0; }
-            .section-title { font-size: 14px; font-weight: bold; color: #0d47a1; border-bottom: 1px solid #0d47a1; padding-bottom: 5px; margin-bottom: 10px; }
-            .content { line-height: 1.6; text-align: justify; }
+            body {
+                font-family: dejavusans, sans-serif;
+                color: #333;
+                font-size: 10pt;
+                line-height: 1.5;
+            }
+            .main-title {
+                font-size: 18pt;
+                font-weight: bold;
+                color: #333;
+                text-align: center;
+                margin-bottom: 6px;
+            }
+            .subtitle {
+                font-size: 12pt;
+                color: #555;
+                text-align: center;
+                margin-bottom: 25px;
+            }
+            .info-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 30px;
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+            }
+            .info-table td {
+                padding: 8px 12px;
+                border: 1px solid #dee2e6;
+            }
+            .info-label {
+                font-weight: bold;
+                width: 30%;
+                background-color: #e9ecef;
+            }
+            .info-value {
+                width: 70%;
+            }
+            .section {
+                margin-bottom: 25px;
+                /* Add a page break before if needed */
+                page-break-inside: avoid;
+            }
+            .section-title {
+                font-size: 13pt;
+                font-weight: bold;
+                color: #D67B7B;
+                padding-bottom: 5px;
+                margin-bottom: 10px;
+                border-bottom: 1.5px solid #D67B7B;
+            }
+            .content {
+                text-align: justify;
+                color: #444;
+            }
+            .content p {
+                margin: 0;
+                padding: 0;
+            }
+            .footer {
+                position: absolute;
+                bottom: 20px;
+                left: 0;
+                right: 0;
+                text-align: center;
+                font-size: 8pt;
+                color: #999;
+            }
         </style>
-       
-        <div class="header">
-            <div class="title">RAPPORT DE STAGE ' . strtoupper($type_formate) . '</div>
-            <div class="subtitle">' . htmlspecialchars($titre) . '</div>
-        </div>
-       
-        <div class="info-box">
-            <strong>Stagiaire :</strong> ' . htmlspecialchars($info_stagiaire['prenom'] . ' ' . $info_stagiaire['nom']) . '<br>
-            <strong>Encadreur :</strong> ' . htmlspecialchars(($info_stagiaire['enc_prenom'] ?? '') . ' ' . ($info_stagiaire['enc_nom'] ?? '')) . '<br>
-            <strong>Date de soumission :</strong> ' . $date_actuelle . '<br>
-            <strong>Type de rapport :</strong> ' . $type_formate . '
-        </div>
-       
-        <div class="section">
-            <div class="section-title">ACTIVITÉS RÉALISÉES</div>
-            <div class="content">' . nl2br(htmlspecialchars($activites)) . '</div>
-        </div>
-       
-        <div class="section">
-            <div class="section-title">DIFFICULTÉS RENCONTRÉES</div>
-            <div class="content">' . nl2br(htmlspecialchars($difficultes)) . '</div>
-        </div>
-       
-        <div class="section">
-            <div class="section-title">SOLUTIONS APPORTÉES</div>
-            <div class="content">' . nl2br(htmlspecialchars($solutions)) . '</div>
-        </div>
-       
-        <div style="margin-top: 40px; text-align: right;">
-            <p><strong>Signature du stagiaire</strong></p>
-            <p style="margin-top: 20px;">_________________________</p>
-            <p>' . htmlspecialchars($info_stagiaire['prenom'] . ' ' . $info_stagiaire['nom']) . '</p>
-        </div>';
-       
+
+    <h1 class="main-title">Rapport de Stage - ' . $type_formate . '</h1>
+    <p class="subtitle">' . htmlspecialchars($titre) . '</p>
+
+    <table class="info-table" cellpadding="5">
+        <tr>
+            <td class="info-label">Stagiaire :</td>
+            <td class="info-value">' . $nom_stagiaire . '</td>
+        </tr>
+        <tr>
+            <td class="info-label">Encadreur :</td>
+            <td class="info-value">' . $nom_encadreur . '</td>
+        </tr>
+        <tr>
+            <td class="info-label">Date de soumission :</td>
+            <td class="info-value">' . $date_actuelle . '</td>
+        </tr>
+        ' . $tache_html . '
+    </table>
+
+    <div class="section">
+        <h2 class="section-title">1. Activités Réalisées</h2>
+        <div class="content">' . nl2br(htmlspecialchars($activites)) . '</div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">2. Difficultés Rencontrées</h2>
+        <div class="content">' . nl2br(htmlspecialchars($difficultes)) . '</div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">3. Solutions Apportées</h2>
+        <div class="content">' . nl2br(htmlspecialchars($solutions)) . '</div>
+    </div>
+    
+    <div class="footer">
+        Généré par le Système de Gestion des Stagiaires | ' . $date_actuelle . '
+    </div>
+    ';
+   
         return $html;
     }
 
@@ -270,11 +348,12 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
      * @param string $recherche Terme de recherche
      * @return mysqli_result Résultats de la requête
      */
-    public function getTousRapports($filtre = 'all', $recherche = '') {
-        $sql = "SELECT r.*, u.nom AS enc_nom, u.prenom AS enc_prenom
+     public function getTousRapports($filtre = 'all', $recherche = '') {
+        $sql = "SELECT r.*, u.nom AS enc_nom, u.prenom AS enc_prenom, t.titre AS tache_titre
                 FROM rapports r
                 LEFT JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur
                 LEFT JOIN utilisateurs u ON s.encadreur_id = u.id
+                LEFT JOIN taches t ON r.tache_id = t.id
                 WHERE r.stagiaire_id = ?";
        
         $params = [$this->stagiaire_id];
@@ -340,7 +419,7 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
         $rapport = $stmt->get_result()->fetch_assoc();
 
         if (!$rapport) {
-            return null; // Le rapport n'existe pas
+            return null; // Le rapport n\'existe pas
         }
 
         // Vérification des permissions
@@ -365,7 +444,7 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
                 }
             }
         }
-        // Pour l'admin, aucune restriction, il peut tout voir.
+        // Pour l\'admin, aucune restriction, il peut tout voir.
         
         return $rapport;
     }

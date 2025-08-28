@@ -1,50 +1,3 @@
-// ================= CONSULTER STAGIAIRE ======================
-function consulterStagiaire(stagiaireId) {
-    const formData = new FormData();
-    formData.append('action', 'get_stagiaire_details');
-    formData.append('stagiaire_id', stagiaireId);
-    fetch(window.location.href, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success && data.stagiaireDetails) {
-            const details = data.stagiaireDetails;
-            let html = `<h2>${details.prenom} ${details.nom}</h2>`;
-            html += `<p><strong>Email :</strong> ${details.email}</p>`;
-            html += `<p><strong>Téléphone :</strong> ${details.telephone || 'Non renseigné'}</p>`;
-            html += `<p><strong>Sexe :</strong> ${details.sex === 'M' ? 'Masculin' : 'Féminin'}</p>`;
-            html += `<p><strong>Filière :</strong> ${details.filiere}</p>`;
-            html += `<p><strong>Niveau :</strong> ${details.niveau}</p>`;
-            html += `<p><strong>Période :</strong> Du ${details.date_debut} au ${details.date_fin}</p>`;
-            ouvrirModalStagiaire(html);
-        } else {
-            alert('Impossible de charger les informations du stagiaire.');
-        }
-    })
-    .catch(() => {
-        alert('Erreur technique lors du chargement des informations.');
-    });
-}
-
-function ouvrirModalStagiaire(contentHtml) {
-    let modal = document.getElementById('modalConsulterStagiaire');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'modalConsulterStagiaire';
-        modal.className = 'modal';
-        modal.innerHTML = `<div class="modal-content"><div class="modal-header"><h3>Informations du stagiaire</h3><button class="modal-close" onclick="fermerModal('modalConsulterStagiaire')">&times;</button></div><div class="modal-body"></div></div>`;
-        document.body.appendChild(modal);
-    }
-    modal.querySelector('.modal-body').innerHTML = contentHtml;
-    modal.style.display = 'block';
-}
-
-function fermerModal(id) {
-    const modal = document.getElementById(id);
-    if (modal) modal.style.display = 'none';
-}
 // ===================================================================
 // ==       FICHIER JAVASCRIPT COMPLET POUR LE DASHBOARD ENCADREUR      ==
 // ===================================================================
@@ -420,6 +373,31 @@ async function voirTheme(themeId) {
 // ==                    GESTION DES RAPPORTS                       ==
 // ===================================================================
 
+/**
+ * Ouvre la modale de validation/rejet de rapport et pré-remplit les champs.
+ * @param {number} rapportId - L'ID du rapport.
+ * @param {string} statut - Le nouveau statut ('validé' ou 'rejeté').
+ */
+function validerRapport(rapportId, statut) {
+    document.getElementById('validationRapportId').value = rapportId;
+    document.getElementById('validationStatut').value = statut;
+    
+    const modal = document.getElementById('modalValidationRapport');
+    const commentaireLabel = modal.querySelector('label[for="commentaireValidation"]');
+    const commentaireTextarea = modal.querySelector('textarea[name="commentaire"]');
+    
+    // Rendre le commentaire obligatoire si le rapport est rejeté
+    if (statut === 'rejeté') {
+        if (commentaireLabel) commentaireLabel.innerHTML = 'Commentaire (obligatoire pour un rejet)';
+        if (commentaireTextarea) commentaireTextarea.required = true;
+    } else {
+        if (commentaireLabel) commentaireLabel.innerHTML = 'Commentaire (optionnel)';
+        if (commentaireTextarea) commentaireTextarea.required = false;
+    }
+    
+    ouvrirModal('modalValidationRapport');
+}
+
 // Fichiers : js/dashboardEncadreur.js ET js/dashboardStagiaire.js
 
 async function voirRapport(rapportId) {
@@ -508,6 +486,14 @@ async function voirRapport(rapportId) {
     } catch (error) {
         modalBody.innerHTML = `<p class="text-danger">Impossible de charger les détails du rapport.</p>`;
     }
+}
+
+/**
+ * Gère la soumission du formulaire de validation/rejet de rapport.
+ */
+async function confirmerValidationRapport() {
+    const form = document.getElementById('formValidationRapport');
+    await soumettreFormulaire(form, 'valider_rapport', 'Le statut du rapport a été mis à jour.', 'modalValidationRapport');
 }
 
 // ===================================================================
@@ -842,74 +828,6 @@ function afficherNotification(message, type = 'info') {
     notification.innerHTML = `<i class="${icon}"></i><span>${message}</span><button onclick="this.parentElement.remove()">&times;</button>`;
     container.appendChild(notification);
     setTimeout(() => notification.remove(), 5000);
-}
-
-async function voirRapport(rapportId) {
-    const modalBody = document.getElementById('rapportModalBody');
-    const modalTitle = document.getElementById('rapportModalTitle');
-    const modalFooter = document.getElementById('rapportModalFooter');
-
-    // Afficher un spinner de chargement
-    modalBody.innerHTML = '<div class="loading-spinner"></div>';
-    modalTitle.textContent = 'Chargement du rapport...';
-    ouvrirModal('modalVoirRapport');
-
-    const formData = new FormData();
-    formData.append('action', 'get_rapport_details');
-    formData.append('rapport_id', rapportId);
-
-    try {
-        const response = await fetch(window.location.href, { method: 'POST', body: formData });
-        const result = await response.json();
-
-        if (result.success) {
-            const rapport = result.data;
-            
-            modalTitle.textContent = rapport.titre;
-
-            // Construire le contenu HTML
-            let contenuHtml = `
-                <div class="rapport-details-view">
-                    <div class="rapport-meta">
-                        <div class="meta-item"><strong>Stagiaire:</strong> ${rapport.stag_prenom} ${rapport.stag_nom}</div>
-                        <div class="meta-item"><strong>Date:</strong> ${new Date(rapport.date_soumission).toLocaleDateString('fr-FR')}</div>
-                        <div class="meta-item"><strong>Type:</strong> ${rapport.type}</div>
-                        <div class="meta-item"><strong>Statut:</strong> <span class="status-badge status-${rapport.statut.replace(' ', '_')}">${rapport.statut}</span></div>
-                    </div>
-                    <hr>
-                    <h4><i class="fas fa-tasks"></i> Activités Réalisées</h4>
-                    <p class="section-content">${rapport.activites.replace(/\n/g, '<br>')}</p>
-                    <hr>
-                    <h4><i class="fas fa-exclamation-triangle"></i> Difficultés Rencontrées</h4>
-                    <p class="section-content">${rapport.difficultes.replace(/\n/g, '<br>')}</p>
-                    <hr>
-                    <h4><i class="fas fa-lightbulb"></i> Solutions Apportées</h4>
-                    <p class="section-content">${rapport.solutions.replace(/\n/g, '<br>')}</p>
-            `;
-
-            if (rapport.commentaire_encadreur) {
-                contenuHtml += `
-                    <hr>
-                    <h4><i class="fas fa-comments"></i> Commentaire de l'Encadreur</h4>
-                    <p class="section-content comment">${rapport.commentaire_encadreur.replace(/\n/g, '<br>')}</p>
-                `;
-            }
-            
-            contenuHtml += `</div>`;
-            modalBody.innerHTML = contenuHtml;
-            
-            // Mettre à jour le pied de page avec les boutons
-            modalFooter.innerHTML = `
-                <button type="button" class="btn btn-secondary" onclick="fermerModal('modalVoirRapport')">Fermer</button>
-                <a href="telecharger_rapport.php?id=${rapport.id}" class="btn btn-primary"><i class="fas fa-download"></i> Télécharger PDF</a>
-            `;
-
-        } else {
-            modalBody.innerHTML = `<p class="text-danger">${result.message}</p>`;
-        }
-    } catch (error) {
-        modalBody.innerHTML = `<p class="text-danger">Impossible de charger les détails du rapport.</p>`;
-    }
 }
 
 async function consulterUtilisateur(userId) {

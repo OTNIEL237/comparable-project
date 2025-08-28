@@ -473,17 +473,21 @@ switch ($onglet_actif) {
                         </div>
                     </div>
 
-                    <!-- Liste des rapports avec actions -->
+                     <!-- Liste des rapports avec actions -->
                     <div class="rapports-list">
                         <?php if (isset($rapports) && $rapports->num_rows > 0): ?>
                             <?php while ($rpt = $rapports->fetch_assoc()): ?>
                                 <!-- Item de rapport avec type et statut -->
                                 <div class="rapport-item">
                                     <div class="rapport-header">
-                                        <div class="rapport-type">
+                                         <div class="rapport-type">
                                             <!-- Badge de type de rapport -->
                                             <span class="type-badge type-<?php echo $rpt['type']; ?>">
                                                 <?php echo ucfirst($rpt['type']); ?>
+                                            </span>
+                                            <!-- Badge de statut du rapport -->
+                                            <span class="statut-badge statut-<?php echo str_replace(' ', '-', $rpt['statut']); ?>">
+                                                <?php echo ucfirst($rpt['statut']); ?>
                                             </span>
                                         </div>
                                         <div class="rapport-date">
@@ -493,20 +497,28 @@ switch ($onglet_actif) {
                                     <div class="rapport-content">
                                         <h3><?php echo htmlspecialchars($rpt['titre']); ?></h3>
                                         <p><?php echo htmlspecialchars(substr($rpt['activites'], 0, 150)) . '...'; ?></p>
+                                        <?php if (!empty($rpt['tache_titre'])): ?>
+                                            <div class="rapport-tache-associee" style="margin-top: 10px; font-size: 0.9em; color: #555;">
+                                                <i class="fas fa-link"></i>
+                                                <strong>Tâche liée :</strong> <?php echo htmlspecialchars($rpt['tache_titre']); ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                     <div class="rapport-actions">
                                         <!-- Actions sur les rapports -->
                                        <button class="btn btn-sm" onclick="voirRapport(<?php echo $rpt['id']; ?>)">
                                             <i class="fas fa-eye"></i> Voir
                                         </button>
-                                        <button class="btn btn-sm" onclick="telechargerRapport(<?php echo $rpt['id']; ?>)">
+                                        <a href="telecharger_rapport.php?id=<?php echo $rpt['id']; ?>" class="btn btn-sm">
                                             <i class="fas fa-download"></i>
                                             PDF
-                                        </button>
+                                        </a>
                                     </div>
                                 </div>
                             <?php endwhile; ?>
                         <?php else: ?>
+
+                    
                             <!-- État vide pour les rapports -->
                             <div class="empty-state">
                                 <i class="fas fa-file-alt"></i>

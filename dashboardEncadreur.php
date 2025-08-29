@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $_POST['encadreur_id'] = $user_id;
             $fichier = isset($_FILES['fichier_joint']) ? $_FILES['fichier_joint'] : null;
             $resultat = $tache->creer($_POST, $fichier);
-            echo json_encode(['success' => $resultat]);
+            echo json_encode($resultat);
             exit();
 
         case 'get_tache':

@@ -16,36 +16,68 @@ class Tache {
      * Crée une nouvelle tâche
      */
     public function creer($data, $file) {
-        // Gérer le fichier joint
+        $this->conn->begin_transaction();
         $fichier_joint = null;
-        $nom_fichier_original = null;
-        if (isset($file) && $file['error'] == 0) {
-            $uploadDir = 'uploads/taches/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
-            }
-            $nom_fichier_original = basename($file['name']);
-            $extension = pathinfo($nom_fichier_original, PATHINFO_EXTENSION);
-            $fichier_joint = uniqid('tache_', true) . '.' . $extension;
-            move_uploaded_file($file['tmp_name'], $uploadDir . $fichier_joint);
-        }
 
-        $sql = "INSERT INTO taches (encadreur_id, stagiaire_id, titre, description, date_echeance, fichier_joint, nom_fichier_original, statut) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'en_attente')";
-        
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param(
-            "iisssss",
-            $data['encadreur_id'],
-            $data['stagiaire_id'],
-            $data['titre'],
-            $data['description'],
-            $data['date_echeance'],
-            $fichier_joint,
-            $nom_fichier_original
-        );
-        
-        return $stmt->execute();
+        try {
+            // 1. Gérer le fichier joint
+            $nom_fichier_original = null;
+            if (isset($file) && $file['error'] == 0) {
+                $uploadDir = __DIR__ . '/../uploads/taches/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+                $nom_fichier_original = basename($file['name']);
+                $extension = pathinfo($nom_fichier_original, PATHINFO_EXTENSION);
+                $fichier_joint = uniqid('tache_', true) . '.' . $extension;
+                
+                if (!move_uploaded_file($file['tmp_name'], $uploadDir . $fichier_joint)) {
+                    throw new Exception("Échec du téléversement du fichier.");
+                }
+            }
+
+            // 2. Insérer en base de données
+            $sql = "INSERT INTO taches (encadreur_id, stagiaire_id, titre, description, date_echeance, fichier_joint, nom_fichier_original, statut) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'en_attente')";
+            
+            $stmt = $this->conn->prepare($sql);
+            if (!$stmt) {
+                throw new Exception("Erreur de préparation de la requête : " . $this->conn->error);
+            }
+
+            $stmt->bind_param(
+                "iisssss",
+                $data['encadreur_id'],
+                $data['stagiaire_id'],
+                $data['titre'],
+                $data['description'],
+                $data['date_echeance'],
+                $fichier_joint,
+                $nom_fichier_original
+            );
+            
+            if (!$stmt->execute()) {
+                // Si l'exécution échoue, lever une exception
+                throw new Exception("Erreur lors de l'enregistrement de la tâche : " . $stmt->error);
+            }
+
+            // 3. Si tout va bien, valider la transaction
+            $this->conn->commit();
+            return ['success' => true, 'message' => 'Tâche créée avec succès.'];
+
+        } catch (Exception $e) {
+            // 4. En cas d'erreur, annuler la transaction
+            $this->conn->rollback();
+
+            // Et supprimer le fichier si il a été téléversé
+            if ($fichier_joint && file_exists(__DIR__ . '/../uploads/taches/' . $fichier_joint)) {
+                unlink(__DIR__ . '/../uploads/taches/' . $fichier_joint);
+            }
+            
+            // Log l'erreur pour le debug
+            error_log("Erreur création tâche: " . $e->getMessage());
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
     }
 
     /**

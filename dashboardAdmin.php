@@ -91,8 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'creer_tache':
             $_POST['encadreur_id'] = $user_id;
             $fichier = isset($_FILES['fichier_joint']) ? $_FILES['fichier_joint'] : null;
-            $resultat = $tache->creer($_POST, $fichier);
-            echo json_encode(['success' => $resultat]);
+                        $resultat = $tache->creer($_POST, $fichier);
+            echo json_encode($resultat);
             exit();
 
         case 'get_tache':
@@ -273,7 +273,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         case 'creer_utilisateur':
             $resultat = Utilisateur::creer($_POST);
-            echo json_encode(['success' => $resultat]);
+            if (is_array($resultat)) {
+                echo json_encode($resultat);
+            } else {
+                echo json_encode(['success' => $resultat]);
+            }
             exit();
         
         case 'changer_statut':
@@ -293,7 +297,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         case 'modifier_utilisateur':
             $resultat = Utilisateur::modifier($_POST);
-            echo json_encode(['success' => $resultat]);
+            if (is_array($resultat)) {
+                echo json_encode($resultat);
+            } else {
+                echo json_encode(['success' => $resultat]);
+            }
             exit();
 
         case 'supprimer_utilisateur':

@@ -66,6 +66,7 @@ function setupEventListeners() {
     // Événements ajoutés pour la gestion des utilisateurs
     document.getElementById('formUtilisateur')?.addEventListener('submit', function(e) {
         e.preventDefault();
+        document.getElementById('roleSelect').disabled = false; // On réactive pour la soumission
         const action = document.getElementById('user_action').value;
         const successMessage = action === 'creer_utilisateur' ? 'Utilisateur créé avec succès !' : 'Utilisateur mis à jour avec succès !';
         soumettreFormulaire(this, action, successMessage, 'modalUtilisateur');
@@ -718,14 +719,16 @@ async function voirTache(tacheId) {
 
 async function soumettreFormulaire(formOrData, action, successMessage, modalToClose = null) {
     const formData = formOrData instanceof FormData ? formOrData : new FormData(formOrData);
-    if (!formData.has('action')) {
+    if (action && !formData.has('action')) {
         formData.append('action', action);
     }
 
     let submitBtn = null;
+    let originalBtnHTML = '';
     if (formOrData instanceof HTMLElement) {
         submitBtn = formOrData.querySelector('button[type="submit"]');
         if (submitBtn) {
+            originalBtnHTML = submitBtn.innerHTML;
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Traitement...';
         }
@@ -733,19 +736,32 @@ async function soumettreFormulaire(formOrData, action, successMessage, modalToCl
 
     try {
         const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
         const result = await response.json();
+
         if (result.success) {
             afficherNotification(successMessage, 'success');
             if (modalToClose) {
                 fermerModal(modalToClose);
             }
-            setTimeout(() => window.location.reload(), 1200);
+            // Recharger la page pour voir les changements
+            setTimeout(() => window.location.reload(), 1500);
         } else {
-            afficherNotification(result.message || "Une erreur est survenue.", 'error');
+            // Afficher le message d'erreur renvoyé par le serveur
+            afficherNotification(result.message || "Une erreur de traitement est survenue.", 'error');
         }
+
     } catch (error) {
         console.error("Erreur de soumission:", error);
-        afficherNotification('Erreur de connexion ou réponse invalide.', 'error');
+        afficherNotification('Erreur de connexion ou réponse invalide du serveur.', 'error');
+    } finally {
+        // Réactiver le bouton de soumission dans tous les cas (succès, erreur, etc.)
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHTML;
+        }
     }
 }
 

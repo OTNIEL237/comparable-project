@@ -66,8 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'supprimer_message':
             if (isset($_POST['message_id'])) {
                 $message_id = (int)$_POST['message_id'];
-                $resultat = $message->supprimerMessage($message_id);
-                echo json_encode(['success' => $resultat]);
+                // Passer le rôle de l'utilisateur connecté à la méthode de suppression
+                $resultat_suppression = $message->supprimerMessage($message_id, $_SESSION['role']);
+                echo json_encode($resultat_suppression); // Envoyer le tableau de résultat directement
             } else {
                 echo json_encode(['success' => false, 'message' => 'ID de message manquant.']);
             }
@@ -329,8 +330,22 @@ switch ($onglet_actif) {
         break;
 
     case 'messagerie':
-        $messages = $message->getMessages($filtre, $recherche);
-        $utilisateurs = $message->getUtilisateursDisponibles();
+        // Récupérer le numéro de page actuel depuis l'URL, par défaut 1
+        $current_page = isset($_GET['p']) ? (int)$_GET['p'] : 1;
+        $messages_per_page = 10; // Définissez le nombre de messages par page ici
+
+        // Appel de la méthode getMessages avec les paramètres de pagination
+        // Assurez-vous que votre classe Message a bien la méthode getMessages mise à jour
+        $message_data = $message->getMessages($filtre, $recherche, $current_page, $messages_per_page);
+
+        // Extrayez les données nécessaires pour l'affichage
+        $messages_result_set = $message_data['messages']; // C'est le mysqli_result que vous utiliserez pour afficher les messages
+        $total_messages = $message_data['total_messages'];
+        $current_page = $message_data['current_page']; // Récupère la page après ajustement éventuel dans la classe
+        $limit = $message_data['limit']; // La limite par page
+        $total_pages = $message_data['total_pages']; // Nombre total de pages
+
+        $utilisateurs = $message->getUtilisateursDisponibles(); // Garder pour le modal d'envoi de message
         break;
     case 'rapports':
         if ($role === 'admin') {
@@ -769,8 +784,8 @@ switch ($onglet_actif) {
                     </div>
 
                     <div class="messages-list">
-    <?php if (isset($messages) && $messages->num_rows > 0): ?>
-        <?php while ($msg = $messages->fetch_assoc()): ?>
+    <?php if (isset($messages_result_set) && $messages_result_set->num_rows > 0): ?>
+        <?php while ($msg = $messages_result_set->fetch_assoc()): ?>
             <div class="message-item <?php echo $msg['lu'] == 0 && $msg['destinataire_id'] == $user_id ? 'unread' : ''; ?>"
                  onclick="ouvrirMessage(<?php echo $msg['id']; ?>)">
                 <div class="message-avatar">
@@ -789,10 +804,12 @@ switch ($onglet_actif) {
                         </span>
                         <div class="message-meta"> <!-- Conteneur pour la date et le bouton -->
                             <span class="date"><?php echo date('d/m/Y H:i', strtotime($msg['date_envoi'])); ?></span>
-                            <!-- BOUTON DE SUPPRESSION AJOUTÉ ICI -->
-                            <button class="btn-delete-message" title="Supprimer ce message" onclick="supprimerMessage(event, <?php echo $msg['id']; ?>)">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
+                            <!-- BOUTON DE SUPPRESSION : Visible UNIQUEMENT si l'utilisateur est 'admin' -->
+                            <?php if ($_SESSION['role'] === 'admin'): ?>
+                                <button class="btn-delete-message" title="Supprimer ce message" onclick="supprimerMessage(event, <?php echo $msg['id']; ?>)">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <div class="message-subject">
@@ -815,6 +832,23 @@ switch ($onglet_actif) {
     <?php endif; ?>
     </div>
 
+                    <!-- Contrôles de pagination -->
+                    <?php if ($total_pages > 1): ?>
+                        <div class="pagination">
+                            <?php if ($current_page > 1): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page - 1; ?>" class="page-link">Précédent</a>
+                            <?php endif; ?>
+
+                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+                            <?php endfor; ?>
+
+                            <?php if ($current_page < $total_pages): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page + 1; ?>" class="page-link">Suivant</a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
 
 
             <?php elseif ($onglet_actif === 'rapports'): ?>

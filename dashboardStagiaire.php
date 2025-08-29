@@ -169,9 +169,22 @@ $filtre = isset($_GET['filter']) ? $_GET['filter'] : 'toutes';
 // Chargement des données selon l'onglet sélectionné
 switch ($onglet_actif) {
     case 'messagerie':
-        // Récupération des messages avec filtres et recherche
-        $messages = $message->getMessages($filtre, $recherche);
-        $utilisateurs = $message->getUtilisateursDisponibles();
+        // Récupérer le numéro de page actuel depuis l'URL, par défaut 1
+        $current_page = isset($_GET['p']) ? (int)$_GET['p'] : 1;
+        $messages_per_page = 20; // Définissez le nombre de messages par page ici
+
+        // Appel de la méthode getMessages avec les paramètres de pagination
+        // Assurez-vous que votre classe Message a bien la méthode getMessages mise à jour
+        $message_data = $message->getMessages($filtre, $recherche, $current_page, $messages_per_page);
+
+        // Extrayez les données nécessaires pour l'affichage
+        $messages_result_set = $message_data['messages']; // C'est le mysqli_result que vous utiliserez pour afficher les messages
+        $total_messages = $message_data['total_messages'];
+        $current_page = $message_data['current_page']; // Récupère la page après ajustement éventuel dans la classe
+        $limit = $message_data['limit']; // La limite par page
+        $total_pages = $message_data['total_pages']; // Nombre total de pages
+
+        $utilisateurs = $message->getUtilisateursDisponibles(); // Garder pour le modal d'envoi de message
         break;
        
     case 'rapports':
@@ -369,8 +382,7 @@ switch ($onglet_actif) {
                         </div>
                     </div>
 
-
-            <?php elseif ($onglet_actif === 'messagerie'): ?>
+                    <?php elseif ($onglet_actif === 'messagerie'): ?>
                 <!-- MESSAGERIE COMPLÈTE - Envoi, réception, pièces jointes -->
                 <div class="messagerie-content">
                     <!-- Barre d'outils avec filtres et recherche -->
@@ -400,8 +412,8 @@ switch ($onglet_actif) {
 
                     <!-- Liste des messages avec indicateurs -->
                     <div class="messages-list">
-                        <?php if (isset($messages) && $messages->num_rows > 0): ?>
-                            <?php while ($msg = $messages->fetch_assoc()): ?>
+                        <?php if (isset($messages_result_set) && $messages_result_set->num_rows > 0): ?>
+                            <?php while ($msg = $messages_result_set->fetch_assoc()): ?>
                                 <!-- Item de message avec statut lu/non lu -->
                                 <div class="message-item <?php echo $msg['lu'] == 0 && $msg['destinataire_id'] == $user_id ? 'unread' : ''; ?>"
                                      onclick="ouvrirMessage(<?php echo $msg['id']; ?>)">
@@ -420,7 +432,11 @@ switch ($onglet_actif) {
                                                 }
                                                 ?>
                                             </span>
-                                            <span class="date"><?php echo date('d/m/Y H:i', strtotime($msg['date_envoi'])); ?></span>
+                                            <div class="message-meta">
+                                                <span class="date"><?php echo date('d/m/Y H:i', strtotime($msg['date_envoi'])); ?></span>
+                                                <!-- Bouton de suppression (visible pour l'expéditeur et/ou destinataire) -->
+                                                
+                                            </div>
                                         </div>
                                         <div class="message-subject">
                                             <?php echo htmlspecialchars($msg['sujet']); ?>
@@ -443,8 +459,27 @@ switch ($onglet_actif) {
                             </div>
                         <?php endif; ?>
                     </div>
+
+                    <!-- Contrôles de pagination -->
+                    <?php if ($total_pages > 1): ?>
+                        <div class="pagination">
+                            <?php if ($current_page > 1): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page - 1; ?>" class="page-link">Précédent</a>
+                            <?php endif; ?>
+
+                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+                            <?php endfor; ?>
+
+                            <?php if ($current_page < $total_pages): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page + 1; ?>" class="page-link">Suivant</a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
+
+           
             <?php elseif ($onglet_actif === 'rapports'): ?>
                 <!-- RAPPORTS COMPLETS - Création, visualisation, PDF -->
                 <div class="rapports-content">

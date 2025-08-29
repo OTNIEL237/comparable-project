@@ -205,8 +205,21 @@ $recherche = isset($_GET['search']) ? $_GET['search'] : '';
 
 switch ($onglet_actif) {
     case 'messagerie':
-        $messages = $message->getMessages($filtre, $recherche);
-        $utilisateurs = $message->getUtilisateursDisponibles();
+        // Récupérer le numéro de page actuel depuis l'URL, par défaut 1
+        $current_page = isset($_GET['p']) ? (int)$_GET['p'] : 1;
+        $messages_per_page = 20; // Définissez le nombre de messages par page ici
+
+        // Appel de la méthode getMessages avec les paramètres de pagination
+        $message_data = $message->getMessages($filtre, $recherche, $current_page, $messages_per_page);
+
+        // Extrayez les données nécessaires pour l'affichage
+        $messages_result_set = $message_data['messages']; // C'est le mysqli_result que vous utiliserez pour afficher les messages
+        $total_messages = $message_data['total_messages'];
+        $current_page = $message_data['current_page']; // Récupère la page après ajustement éventuel dans la classe
+        $limit = $message_data['limit']; // La limite par page
+        $total_pages = $message_data['total_pages']; // Nombre total de pages
+
+        $utilisateurs = $message->getUtilisateursDisponibles(); // Garder pour le modal d'envoi de message
         break;
     case 'rapports':
         $rapports = Rapport::getRapportsEncadreur($user_id, $filtre, $recherche);
@@ -530,8 +543,10 @@ switch ($onglet_actif) {
                         </div>
                     </div>
 
-            <?php elseif ($onglet_actif === 'messagerie'): ?>
+                    <?php elseif ($onglet_actif === 'messagerie'): ?>
+                <!-- MESSAGERIE COMPLÈTE - Envoi, réception, pièces jointes -->
                 <div class="messagerie-content">
+                    <!-- Barre d'outils avec filtres et recherche -->
                     <div class="toolbar">
                         <div class="toolbar-left">
                             <button class="btn btn-primary" onclick="ouvrirNouveauMessage()">
@@ -540,21 +555,26 @@ switch ($onglet_actif) {
                             </button>
                         </div>
                         <div class="toolbar-right">
+                            <!-- Filtres pour les messages -->
                             <select class="filter-select" onchange="filtrerMessages(this.value)">
                                 <option value="all" <?php echo $filtre === 'all' ? 'selected' : ''; ?>>Tous les messages</option>
                                 <option value="unread" <?php echo $filtre === 'unread' ? 'selected' : ''; ?>>Non lus</option>
                                 <option value="sent" <?php echo $filtre === 'sent' ? 'selected' : ''; ?>>Envoyés</option>
                             </select>
+                            <!-- Barre de recherche -->
                             <div class="search-box">
                                 <input type="text" placeholder="Rechercher..." value="<?php echo htmlspecialchars($recherche); ?>"
-                                      onkeyup="rechercherMessages(this.value)">
+                                       onkeyup="rechercherMessages(this.value)">
                                 <i class="fas fa-search"></i>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Liste des messages avec indicateurs -->
                     <div class="messages-list">
-                        <?php if (isset($messages) && $messages->num_rows > 0): ?>
-                            <?php while ($msg = $messages->fetch_assoc()): ?>
+                        <?php if (isset($messages_result_set) && $messages_result_set->num_rows > 0): ?>
+                            <?php while ($msg = $messages_result_set->fetch_assoc()): ?>
+                                <!-- Item de message avec statut lu/non lu -->
                                 <div class="message-item <?php echo $msg['lu'] == 0 && $msg['destinataire_id'] == $user_id ? 'unread' : ''; ?>"
                                      onclick="ouvrirMessage(<?php echo $msg['id']; ?>)">
                                     <div class="message-avatar">
@@ -564,6 +584,7 @@ switch ($onglet_actif) {
                                         <div class="message-header">
                                             <span class="sender">
                                                 <?php
+                                                // Affichage expéditeur/destinataire selon le contexte
                                                 if ($msg['expediteur_id'] == $user_id) {
                                                     echo 'À: ' . htmlspecialchars($msg['dest_prenom'] . ' ' . $msg['dest_nom']);
                                                 } else {
@@ -571,10 +592,14 @@ switch ($onglet_actif) {
                                                 }
                                                 ?>
                                             </span>
-                                            <span class="date"><?php echo date('d/m/Y H:i', strtotime($msg['date_envoi'])); ?></span>
+                                            <div class="message-meta">
+                                                <span class="date"><?php echo date('d/m/Y H:i', strtotime($msg['date_envoi'])); ?></span>
+                                                
+                                            </div>
                                         </div>
                                         <div class="message-subject">
                                             <?php echo htmlspecialchars($msg['sujet']); ?>
+                                            <!-- Indicateur de pièce jointe -->
                                             <?php if ($msg['nb_pieces_jointes'] > 0): ?>
                                                 <i class="fas fa-paperclip"></i>
                                             <?php endif; ?>
@@ -586,12 +611,30 @@ switch ($onglet_actif) {
                                 </div>
                             <?php endwhile; ?>
                         <?php else: ?>
+                            <!-- État vide -->
                             <div class="empty-state">
                                 <i class="fas fa-inbox"></i>
                                 <p>Aucun message trouvé</p>
                             </div>
                         <?php endif; ?>
                     </div>
+
+                    <!-- Contrôles de pagination -->
+                    <?php if ($total_pages > 1): ?>
+                        <div class="pagination">
+                            <?php if ($current_page > 1): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page - 1; ?>" class="page-link">Précédent</a>
+                            <?php endif; ?>
+
+                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+                            <?php endfor; ?>
+
+                            <?php if ($current_page < $total_pages): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page + 1; ?>" class="page-link">Suivant</a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
             <?php elseif ($onglet_actif === 'rapports'): ?>

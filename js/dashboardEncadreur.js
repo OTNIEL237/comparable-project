@@ -182,7 +182,6 @@ async function ouvrirMessage(messageId) {
     }
 }
 async function supprimerMessage(event, messageId) {
-    // Empêche l'ouverture du message lors du clic sur le bouton supprimer
     event.stopPropagation(); 
 
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce message définitivement ? Cette action est irréversible.')) {
@@ -193,7 +192,6 @@ async function supprimerMessage(event, messageId) {
     formData.append('action', 'supprimer_message');
     formData.append('message_id', messageId);
 
-    // On réutilise la fonction générique pour soumettre la requête
     await soumettreFormulaire(formData, 'supprimer_message', 'Message supprimé avec succès !');
 }
 
@@ -769,14 +767,6 @@ async function soumettreFormulaire(formOrData, action, successMessage, modalToCl
 // ==          FILTRES ET RECHERCHES (FONCTIONS MANQUANTES)         ==
 // ===================================================================
 
-function filtrerMessages(filtre) {
-    const url = new URL(window.location);
-    url.searchParams.set('tab', 'messagerie');
-    url.searchParams.set('filter', filtre);
-    url.searchParams.delete('search'); // Réinitialiser la recherche lors du filtrage
-    window.location.href = url.toString();
-}
-
 function rechercherMessages(terme) {
     // Utilise un délai pour ne pas recharger la page à chaque frappe
     clearTimeout(window.searchTimeout);
@@ -788,6 +778,7 @@ function rechercherMessages(terme) {
         } else {
             url.searchParams.delete('search');
         }
+        url.searchParams.delete('p'); // Réinitialiser la page à 1 lors de la recherche
         window.location.href = url.toString();
     }, 500);
 }

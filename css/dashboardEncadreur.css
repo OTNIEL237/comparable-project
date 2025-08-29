@@ -2063,3 +2063,56 @@ body {
     justify-content: flex-end;
     gap: 10px;
 }
+
+
+
+/* Styles pour la pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #fff;
+    border-top: 1px solid #eee;
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+    border-radius: 8px; /* Ajout d'un léger bord arrondi */
+}
+
+.pagination .page-link {
+    padding: 8px 15px;
+    margin: 0 5px;
+    border: 1px solid #007bff; /* Couleur primaire */
+    border-radius: 5px;
+    text-decoration: none;
+    color: #007bff;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    font-weight: 500;
+}
+
+.pagination .page-link:hover {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.pagination .page-link.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+    cursor: default;
+}
+
+.pagination .page-link.active:hover {
+    background-color: #0056b3; /* Un peu plus foncé au survol pour l'actif */
+    border-color: #0056b3;
+}
+
+/* Style pour les liens Précédent/Suivant désactivés si besoin (en ajoutant une classe 'disabled' via PHP) */
+/* Dans cet exemple, ils sont simplement masqués si non nécessaires, mais on pourrait les styliser s'ils sont affichés mais désactivés */
+.pagination .page-link.disabled {
+    background-color: #e9ecef;
+    color: #6c757d;
+    border-color: #e9ecef;
+    cursor: not-allowed;
+    opacity: 0.7;
+}

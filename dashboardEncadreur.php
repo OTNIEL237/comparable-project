@@ -648,20 +648,20 @@ switch ($onglet_actif) {
                                         <p><?php echo htmlspecialchars(substr($rpt['activites'], 0, 150)) . '...'; ?></p>
                                     </div>
                                     <div class="rapport-actions">
-                                            <button class="btn btn-sm" onclick="voirRapport(<?php echo $rpt['id']; ?>)">
-                                                <i class="fas fa-eye"></i> Voir
+                                            <button class="btn btn-sm" onclick="voirRapport(<?php echo $rpt['id']; ?>)" title="Voir le rapport">
+                                                <i class="fas fa-eye"></i> 
                                             </button>
-                                            <a href="telecharger_rapport.php?id=<?= $rpt['id'] ?>" class="btn btn-sm btn-download">
-                                                <i class="fas fa-download"></i> PDF
+                                            <a href="telecharger_rapport.php?id=<?= $rpt['id'] ?>" class="btn btn-sm btn-download" title="Télécharger le rapport">
+                                                <i class="fas fa-download"></i>
                                             </a>
                                                         <?php if ($rpt['statut'] === 'en attente'): ?>
-                                            <button class="btn btn-sm btn-success" onclick="validerRapport(<?php echo $rpt['id']; ?>, 'validé')">
+                                            <button class="btn btn-sm btn-success" onclick="validerRapport(<?php echo $rpt['id']; ?>, 'validé')" title="Valider le rapport">
                                                 <i class="fas fa-check"></i>
-                                                Valider
+                                                
                                             </button>
-                                            <button class="btn btn-sm btn-danger" onclick="validerRapport(<?php echo $rpt['id']; ?>, 'rejeté')">
+                                            <button class="btn btn-sm btn-danger" onclick="validerRapport(<?php echo $rpt['id']; ?>, 'rejeté')" title="Rejeter le rapport">
                                                 <i class="fas fa-times"></i>
-                                                Rejeter
+                                                
                                             </button>
                                         <?php endif; ?>
                                     </div>
@@ -741,14 +741,14 @@ switch ($onglet_actif) {
                                 <span class="status-badge status-<?php echo $statut_reel; ?>"><?php echo str_replace('_', ' ', $statut_reel); ?></span>
                                 <div class="tache-actions">
                                     <!-- Assurez-vous que les classes sont bien btn, btn-sm, et la couleur (btn-info, etc.) -->
-                                    <button class="btn btn-sm btn-info" onclick="voirTache(<?php echo $t['id']; ?>)">
-                                        <i class="fas fa-eye"></i> Consulter
+                                    <button class="btn btn-sm btn-info" onclick="voirTache(<?php echo $t['id']; ?>)" title="Voir la tâche">
+                                        <i class="fas fa-eye"></i> 
                                     </button>
-                                    <button class="btn btn-sm btn-secondary" onclick="modifierTache(<?php echo $t['id']; ?>)">
-                                        <i class="fas fa-edit"></i> Modifier
+                                    <button class="btn btn-sm btn-secondary" onclick="modifierTache(<?php echo $t['id']; ?>)" title="Modifier la tâche">
+                                        <i class="fas fa-edit"></i> 
                                     </button>
-                                    <button class="btn btn-sm btn-danger" onclick="supprimerTache(<?php echo $t['id']; ?>)">
-                                        <i class="fas fa-trash"></i> Supprimer
+                                    <button class="btn btn-sm btn-danger" onclick="supprimerTache(<?php echo $t['id']; ?>)" title="Supprimer la tâche">
+                                        <i class="fas fa-trash"></i> 
                                     </button>
                                 </div>
                             </div>
@@ -1005,14 +1005,14 @@ switch ($onglet_actif) {
                         <!-- ACTIONS SÉPARÉES -->
                         <div class="stagiaire-actions">
                             <button class="btn btn-sm btn-secondary" onclick="consulterStagiaire(<?php echo $stag['id']; ?>)">
-                                <i class="fas fa-eye"></i> Consulter
+                                <i class="fas fa-eye"></i> 
                             </button>
                             <?php 
                                 // On passe le nom du stagiaire en paramètre pour l'afficher dans le titre de la modale
                                 $stagiaireNomComplet = htmlspecialchars($stag['prenom'] . ' ' . $stag['nom'], ENT_QUOTES);
                             ?>
                             <button class="btn btn-sm btn-primary" onclick="ouvrirModalAttribuerAStagiaire(<?php echo $stag['id']; ?>, '<?php echo $stagiaireNomComplet; ?>')">
-                                <i class="fas fa-lightbulb"></i> Attribuer Thème
+                                <i class="fas fa-lightbulb"></i> 
                             </button>
                         </div>
                     </div>
@@ -1074,17 +1074,17 @@ switch ($onglet_actif) {
                             <?php endif; ?>
                         </div>
                         <div class="theme-actions">
-                            <button class="btn btn-sm btn-info" onclick="voirTheme(<?php echo $th['id']; ?>)">
-                                <i class="fas fa-eye"></i> Consulter
+                            <button class="btn btn-sm btn-info" onclick="voirTheme(<?php echo $th['id']; ?>)" title="Consulter le thème">
+                                <i class="fas fa-eye"></i> 
                             </button>
-                            <button class="btn btn-sm" onclick="ouvrirModalAttribuer(<?php echo $th['id']; ?>)">
-                                <i class="fas fa-user-plus"></i> Attribuer
+                            <button class="btn btn-sm" onclick="ouvrirModalAttribuer(<?php echo $th['id']; ?>)" title="Attribuer un stagiaire">
+                                <i class="fas fa-user-plus"></i> 
                             </button>
-                            <button class="btn btn-sm btn-secondary" onclick="ouvrirModalTheme(<?php echo $th['id']; ?>)">
-                                <i class="fas fa-edit"></i> Modifier
+                            <button class="btn btn-sm btn-secondary" onclick="ouvrirModalTheme(<?php echo $th['id']; ?>)" title="Modifier le thème">
+                                <i class="fas fa-edit"></i> 
                             </button>
-                            <button class="btn btn-sm btn-danger" onclick="supprimerTheme(<?php echo $th['id']; ?>)">
-                                <i class="fas fa-trash"></i> Supprimer
+                            <button class="btn btn-sm btn-danger" onclick="supprimerTheme(<?php echo $th['id']; ?>)" title="Supprimer le thème">
+                                <i class="fas fa-trash"></i> 
                             </button>
                         </div>
                     </div>

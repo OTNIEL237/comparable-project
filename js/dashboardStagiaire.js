@@ -199,10 +199,13 @@ function filtrerMessages(filtre) {
     const url = new URL(window.location);
     url.searchParams.set('tab', 'messagerie');
     url.searchParams.set('filter', filtre);
+    url.searchParams.delete('search'); // Réinitialiser la recherche lors du filtrage
+    url.searchParams.delete('p_msg');      // Réinitialiser la page à 1 pour les messages
     window.location.href = url.toString();
 }
 
 function rechercherMessages(terme) {
+    // Utilise un délai pour ne pas recharger la page à chaque frappe
     clearTimeout(window.searchTimeout);
     window.searchTimeout = setTimeout(() => {
         const url = new URL(window.location);
@@ -212,10 +215,10 @@ function rechercherMessages(terme) {
         } else {
             url.searchParams.delete('search');
         }
+        url.searchParams.delete('p_msg'); // Réinitialiser la page à 1 pour les messages
         window.location.href = url.toString();
     }, 500);
 }
-
 /**
  * Prépare le formulaire de nouveau message pour une réponse.
  */
@@ -288,6 +291,8 @@ function filtrerRapports(filtre) {
     const url = new URL(window.location);
     url.searchParams.set('tab', 'rapports');
     url.searchParams.set('filter', filtre);
+    url.searchParams.delete('search'); // Réinitialiser la recherche
+    url.searchParams.delete('p_rpt');   // Réinitialiser la page à 1 pour les rapports
     window.location.href = url.toString();
 }
 
@@ -301,6 +306,7 @@ function rechercherRapports(terme) {
         } else {
             url.searchParams.delete('search');
         }
+        url.searchParams.delete('p_rpt'); // Réinitialiser la page à 1 pour les rapports
         window.location.href = url.toString();
     }, 500);
 }
@@ -433,6 +439,8 @@ function filtrerTaches(filtre) {
     const url = new URL(window.location);
     url.searchParams.set('tab', 'taches');
     url.searchParams.set('filter', filtre);
+    url.searchParams.delete('search'); // Réinitialiser la recherche
+    url.searchParams.delete('p_tache'); // Réinitialiser la page à 1 pour les tâches
     window.location.href = url.toString();
 }
 
@@ -511,10 +519,10 @@ function rechercherTaches(terme) {
         } else {
             url.searchParams.delete('search');
         }
+        url.searchParams.delete('p_tache'); // Réinitialiser la page à 1 pour les tâches
         window.location.href = url.toString();
     }, 500);
 }
-
 
 // ===================================================================
 // ==                     GESTION DE LA PRÉSENCE                    ==

@@ -9,7 +9,7 @@ session_start();
 require_once 'classes/Database.php';
 require_once 'classes/Message.php';
 require_once 'classes/Rapport.php';
-require_once 'classes/Tache.php';
+require_once 'classes/Tache.php'; // Assurez-vous que cette ligne est présente
 require_once 'classes/Theme.php';
 require_once 'classes/Evaluation.php';
 require_once 'classes/Presence.php';
@@ -26,27 +26,51 @@ $nom_complet = $_SESSION['prenom'] . ' ' . $_SESSION['nom'];
 
 // Initialisation des classes 
 $message = new Message($user_id);
-$rapport = new Rapport($user_id);
-$tache = new Tache();
+$rapport = new Rapport($user_id); // Assurez-vous que le constructeur de Rapport peut prendre $user_id
+$tache = new Tache(); // Instanciation de la classe Tache
 $theme = new Theme();
 $theme_stagiaire = $theme->getThemeByStagiaire($user_id);
 
+// === DÉFINITION DES VARIABLES DE PAGINATION AU DÉBUT DU SCRIPT ===
+// Pour la messagerie
+$current_page_messages = isset($_GET['p_msg']) ? (int)$_GET['p_msg'] : 1;
+$messages_per_page = 20;
+
+// Pour les rapports
+$current_page_reports = isset($_GET['p_rpt']) ? (int)$_GET['p_rpt'] : 1;
+$reports_per_page = 20; // 20 rapports par page pour le stagiaire, comme demandé
+
+// Pour les tâches
+$current_page_tasks = isset($_GET['p_tache']) ? (int)$_GET['p_tache'] : 1;
+$tasks_per_page = 20; // 20 tâches par page
+// =================================================================
 
 // Statistiques pour le dashboard principal
+// CORRECTION LIGNE 38 : Appeler getTousRapports avec pagination et extraire les données
+$rapport_data_recents = $rapport->getTousRapports('all', '', 1, 5); // Par exemple, 5 rapports récents pour le dashboard
+$rapports_recents_set = $rapport_data_recents['rapports'];
+$nb_rapports = $rapport_data_recents['total_rapports'];
+
+
 $nb_messages_non_lus = $message->compterNonLus();
-$rapports_recents = $rapport->getTousRapports('all', '');
-$nb_rapports = $rapports_recents->num_rows;
+
 // Statistiques
 $nb_taches_en_cours_sql = "SELECT COUNT(*) as count FROM taches WHERE stagiaire_id = ? AND statut IN ('en_attente', 'en_retard')";
 $stmt = $conn->prepare($nb_taches_en_cours_sql);
+if ($stmt === false) { error_log("Error preparing nb_taches_en_cours_sql: " . $conn->error); }
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $nb_taches_en_cours = $stmt->get_result()->fetch_assoc()['count'];
+$stmt->close();
+
+
 $taches_actives_sql = "SELECT id, titre FROM taches WHERE stagiaire_id = ? AND statut IN ('en_attente', 'en_retard') ORDER BY date_echeance ASC";
 $stmt_taches = $conn->prepare($taches_actives_sql);
+if ($stmt_taches === false) { error_log("Error preparing taches_actives_sql: " . $conn->error); }
 $stmt_taches->bind_param("i", $user_id);
 $stmt_taches->execute();
 $taches_actives = $stmt_taches->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt_taches->close();
 
 
 // Traitement des actions AJAX pour messagerie et rapports
@@ -72,17 +96,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $activites = $_POST['activites'];
             $difficultes = $_POST['difficultes'];
             $solutions = $_POST['solutions'];
-            $tache_id = $_POST['tache_id'] ?? null; // NOUVEAU : Récupérer l'ID de la tâche
+            $tache_id = $_POST['tache_id'] ?? null;
            
-            $resultat = $rapport->creer($type, $titre, $activites, $difficultes, $solutions, $tache_id); // NOUVEAU : Passer l'ID à la méthode
+            $resultat = $rapport->creer($type, $titre, $activites, $difficultes, $solutions, $tache_id);
             echo json_encode($resultat);
             exit();
-
-            if ($resultat['success']) {
-                $_SESSION['success'] = "Rapport envoyé à votre encadreur avec succès !";
-            } else {
-                $_SESSION['error'] = $resultat['message'];
-            }
            
         // Action : Marquer un message comme lu
         case 'marquer_lu':
@@ -94,13 +112,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
           case 'terminer_tache':
             $tache_id = $_POST['tache_id'];
             $resultat = $tache->marquerTerminee($tache_id, $user_id);
-            echo json_encode(['success' => $resultat]);
+            echo json_encode($resultat); // marquerTerminee retourne maintenant un tableau
             exit();
 
           case 'get_tache_details':
             if (isset($_POST['tache_id'])) {
                 $tache_id = (int)$_POST['tache_id'];
-                // La classe Tache est déjà instanciée au début du fichier
                 $tache_details = $tache->getTacheById($tache_id);
                 
                 // Sécurité : Vérifier que la tâche appartient bien au stagiaire connecté
@@ -128,6 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'get_presence_events':
             $annee = intval($_POST['year']);
             $mois = intval($_POST['month']);
+            $presence = new Presence();
             $events = $presence->getPresencePourMois($user_id, $annee, $mois);
             echo json_encode($events);
             exit();
@@ -147,16 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 echo json_encode(['success' => false, 'message' => 'ID de rapport manquant.']);
             }
             exit();
-
-        }
-
-       
-
-
-
-
-            
-        
+    }
 }
 
 
@@ -164,37 +173,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $onglet_actif = isset($_GET['tab']) ? $_GET['tab'] : 'dashboard';
 $filtre = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 $recherche = isset($_GET['search']) ? $_GET['search'] : '';
-$filtre = isset($_GET['filter']) ? $_GET['filter'] : 'toutes';
 
 // Chargement des données selon l'onglet sélectionné
 switch ($onglet_actif) {
     case 'messagerie':
-        // Récupérer le numéro de page actuel depuis l'URL, par défaut 1
-        $current_page = isset($_GET['p']) ? (int)$_GET['p'] : 1;
-        $messages_per_page = 20; // Définissez le nombre de messages par page ici
-
         // Appel de la méthode getMessages avec les paramètres de pagination
-        // Assurez-vous que votre classe Message a bien la méthode getMessages mise à jour
-        $message_data = $message->getMessages($filtre, $recherche, $current_page, $messages_per_page);
+        $message_data = $message->getMessages($filtre, $recherche, $current_page_messages, $messages_per_page);
 
         // Extrayez les données nécessaires pour l'affichage
-        $messages_result_set = $message_data['messages']; // C'est le mysqli_result que vous utiliserez pour afficher les messages
+        $messages_result_set = $message_data['messages'];
         $total_messages = $message_data['total_messages'];
-        $current_page = $message_data['current_page']; // Récupère la page après ajustement éventuel dans la classe
-        $limit = $message_data['limit']; // La limite par page
-        $total_pages = $message_data['total_pages']; // Nombre total de pages
+        $current_page_messages = $message_data['current_page'];
+        $limit_messages = $message_data['limit'];
+        $total_pages_messages = $message_data['total_pages'];
 
-        $utilisateurs = $message->getUtilisateursDisponibles(); // Garder pour le modal d'envoi de message
+        $utilisateurs = $message->getUtilisateursDisponibles();
         break;
        
     case 'rapports':
-        // Récupération des rapports avec filtres et recherche
-        $rapports = $rapport->getTousRapports($filtre, $recherche);
+        // Récupération des rapports avec filtres et recherche avec pagination
+        $rapport_data = $rapport->getTousRapports($filtre, $recherche, $current_page_reports, $reports_per_page);
+        
+        $rapports_result_set = $rapport_data['rapports'];
+        $total_rapports = $rapport_data['total_rapports'];
+        $current_page_reports = $rapport_data['current_page'];
+        $limit_reports = $rapport_data['limit'];
+        $total_pages_reports = $rapport_data['total_pages'];
         break;
 
     case 'taches':
         // On passe maintenant le terme de recherche à la méthode
-        $taches = $tache->getTachesPourStagiaire($user_id, $filtre, $recherche);
+        $tache_data = $tache->getTachesPourStagiaire($user_id, $filtre, $recherche, $current_page_tasks, $tasks_per_page);
+        
+        $taches_result_set = $tache_data['tasks'];
+        $total_tasks = $tache_data['total_tasks'];
+        $current_page_tasks = $tache_data['current_page'];
+        $limit_tasks = $tache_data['limit'];
+        $total_pages_tasks = $tache_data['total_pages'];
         break;
 
     case 'presences':
@@ -212,12 +227,14 @@ switch ($onglet_actif) {
                     LEFT JOIN utilisateurs enc ON s.encadreur_id = enc.id 
                     WHERE u.id = ?";
         $profil_stmt = $conn->prepare($profil_sql);
+        if ($profil_stmt === false) { error_log("Error preparing profil_sql: " . $conn->error); }
         $profil_stmt->bind_param("i", $user_id);
         $profil_stmt->execute();
         $profil = $profil_stmt->get_result()->fetch_assoc();
+        $profil_stmt->close();
     
     // Calculer les jours restants
-    if ($profil['date_debut'] && $profil['date_fin']) {
+    if ($profil && $profil['date_debut'] && $profil['date_fin']) { // Ajout de la vérification $profil
         $now = new DateTime();
         $end = new DateTime($profil['date_fin']);
         $interval = $now->diff($end);
@@ -241,7 +258,6 @@ switch ($onglet_actif) {
         break;
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -382,6 +398,7 @@ switch ($onglet_actif) {
                         </div>
                     </div>
 
+
                     <?php elseif ($onglet_actif === 'messagerie'): ?>
                 <!-- MESSAGERIE COMPLÈTE - Envoi, réception, pièces jointes -->
                 <div class="messagerie-content">
@@ -434,8 +451,7 @@ switch ($onglet_actif) {
                                             </span>
                                             <div class="message-meta">
                                                 <span class="date"><?php echo date('d/m/Y H:i', strtotime($msg['date_envoi'])); ?></span>
-                                                <!-- Bouton de suppression (visible pour l'expéditeur et/ou destinataire) -->
-                                                
+                                                <!-- Pas de bouton de suppression pour le stagiaire -->
                                             </div>
                                         </div>
                                         <div class="message-subject">
@@ -460,27 +476,26 @@ switch ($onglet_actif) {
                         <?php endif; ?>
                     </div>
 
-                    <!-- Contrôles de pagination -->
-                    <?php if ($total_pages > 1): ?>
+                    <!-- Contrôles de pagination pour les messages -->
+                    <?php if (isset($total_pages_messages) && $total_pages_messages > 1): ?>
                         <div class="pagination">
-                            <?php if ($current_page > 1): ?>
-                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page - 1; ?>" class="page-link">Précédent</a>
+                            <?php if ($current_page_messages > 1): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_msg=<?php echo $current_page_messages - 1; ?>" class="page-link">Précédent</a>
                             <?php endif; ?>
 
-                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+                            <?php for ($i = 1; $i <= $total_pages_messages; $i++): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_msg=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page_messages) ? 'active' : ''; ?>"><?php echo $i; ?></a>
                             <?php endfor; ?>
 
-                            <?php if ($current_page < $total_pages): ?>
-                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page + 1; ?>" class="page-link">Suivant</a>
+                            <?php if ($current_page_messages < $total_pages_messages): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_msg=<?php echo $current_page_messages + 1; ?>" class="page-link">Suivant</a>
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>
 
-
-           
-            <?php elseif ($onglet_actif === 'rapports'): ?>
+                   
+           <?php elseif ($onglet_actif === 'rapports'): ?>
                 <!-- RAPPORTS COMPLETS - Création, visualisation, PDF -->
                 <div class="rapports-content">
                     <!-- Barre d'outils pour les rapports -->
@@ -510,8 +525,8 @@ switch ($onglet_actif) {
 
                      <!-- Liste des rapports avec actions -->
                     <div class="rapports-list">
-                        <?php if (isset($rapports) && $rapports->num_rows > 0): ?>
-                            <?php while ($rpt = $rapports->fetch_assoc()): ?>
+                        <?php if (isset($rapports_result_set) && $rapports_result_set->num_rows > 0): ?>
+                            <?php while ($rpt = $rapports_result_set->fetch_assoc()): ?>
                                 <!-- Item de rapport avec type et statut -->
                                 <div class="rapport-item">
                                     <div class="rapport-header">
@@ -561,7 +576,25 @@ switch ($onglet_actif) {
                             </div>
                         <?php endif; ?>
                     </div>
+
+                    <!-- Contrôles de pagination pour les rapports -->
+                    <?php if (isset($total_pages_reports) && $total_pages_reports > 1): ?>
+                        <div class="pagination">
+                            <?php if ($current_page_reports > 1): ?>
+                                <a href="?tab=rapports&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_rpt=<?php echo $current_page_reports - 1; ?>" class="page-link">Précédent</a>
+                            <?php endif; ?>
+
+                            <?php for ($i = 1; $i <= $total_pages_reports; $i++): ?>
+                                <a href="?tab=rapports&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_rpt=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page_reports) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+                            <?php endfor; ?>
+
+                            <?php if ($current_page_reports < $total_pages_reports): ?>
+                                <a href="?tab=rapports&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_rpt=<?php echo $current_page_reports + 1; ?>" class="page-link">Suivant</a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
+
 
             <?php elseif ($onglet_actif === 'profil'): ?>
     <div class="profil-content">
@@ -668,96 +701,107 @@ switch ($onglet_actif) {
     </div>
 
     <?php elseif ($onglet_actif === 'taches'): ?>
-<div class="taches-content">
-    <div class="toolbar">
-    <div class="toolbar-left">
-        <h2>Mes Tâches</h2>
-    </div>
-    <div class="toolbar-right">
-        <select class="filter-select" onchange="filtrerTaches(this.value)">
-            <option value="toutes" <?php echo $filtre === 'toutes' ? 'selected' : ''; ?>>Toutes les tâches</option>
-            <option value="en_cours" <?php echo $filtre === 'en_cours' ? 'selected' : ''; ?>>En cours</option>
-            <option value="en_retard" <?php echo $filtre === 'en_retard' ? 'selected' : ''; ?>>En retard</option>
-            <option value="terminees" <?php echo $filtre === 'terminees' ? 'selected' : ''; ?>>Terminées</option>
-        </select>
-        <!-- NOUVELLE BARRE DE RECHERCHE -->
-        <div class="search-box">
-            <input type="text" placeholder="Rechercher une tâche..." value="<?php echo htmlspecialchars($recherche); ?>" onkeyup="rechercherTaches(this.value)">
-            <i class="fas fa-search"></i>
-        </div>
-    </div>
-</div>
-    
-        
-
-    <div class="taches-grid">
-        <?php if (isset($taches) && $taches->num_rows > 0): ?>
-            <?php while ($t = $taches->fetch_assoc()): ?>
-    <?php
-        // ... (votre code PHP pour calculer le statut et les jours restants est correct)
-        $statut_reel = $t['statut'];
-        $jours_restants = '';
-        if ($statut_reel !== 'terminee') {
-            $echeance = new DateTime($t['date_echeance']);
-            $aujourdhui = new DateTime();
-            $diff = $aujourdhui->diff($echeance);
-            if ($aujourdhui > $echeance) {
-                $statut_reel = 'en_retard';
-                $jours_restants = "Échue depuis " . $diff->days . " jour(s)";
-            } else {
-                $jours_restants = $diff->days . ' jour(s) restant(s)';
-            }
-        }
-    ?>
-    <!-- STRUCTURE HTML CORRIGÉE -->
-    <div class="tache-card status-card-<?php echo $statut_reel; ?>" onclick="voirTache(<?php echo $t['id']; ?>)" style="cursor: pointer;">
-        <div class="tache-card-header">
-            <h3><?php echo htmlspecialchars($t['titre']); ?></h3>
-        </div>
-        <div class="tache-card-body">
-            <div class="tache-info">
-                <div class="info-line">
-                    <i class="fas fa-calendar-alt"></i>
-                    Échéance : <span><?php echo date('d/m/Y', strtotime($t['date_echeance'])); ?></span>
-                </div>
-                <div class="info-line">
-                    <i class="fas fa-hourglass-half"></i>
-                    Délai : <span><?php echo $jours_restants; ?></span>
-                </div>
-                <div class="info-line">
-                    <i class="fas fa-align-left"></i>
-                    <!-- Utilisation de <p> pour une meilleure sémantique et contrôle du style -->
-                    <p><?php echo htmlspecialchars(substr($t['description'], 0, 80)) . '...'; ?></p>
-                </div>
-                <?php if ($t['nom_fichier_original']): ?>
-                    <div class="info-line">
-                        <i class="fas fa-paperclip"></i>
-                        Fichier joint disponible
+                <!-- NOUVEAU BLOC POUR LA PAGINATION DES TÂCHES -->
+                <div class="taches-content">
+                    <div class="toolbar">
+                        <div class="toolbar-left">
+                            <h2>Mes Tâches</h2>
+                        </div>
+                        <div class="toolbar-right">
+                            <select class="filter-select" onchange="filtrerTaches(this.value)">
+                                <option value="toutes" <?php echo $filtre === 'toutes' ? 'selected' : ''; ?>>Toutes les tâches</option>
+                                <option value="en_cours" <?php echo $filtre === 'en_cours' ? 'selected' : ''; ?>>En cours</option>
+                                <option value="en_retard" <?php echo $filtre === 'en_retard' ? 'selected' : ''; ?>>En retard</option>
+                                <option value="terminees" <?php echo $filtre === 'terminees' ? 'selected' : ''; ?>>Terminées</option>
+                            </select>
+                            <div class="search-box">
+                                <input type="text" placeholder="Rechercher une tâche..." value="<?php echo htmlspecialchars($recherche); ?>" onkeyup="rechercherTaches(this.value)">
+                                <i class="fas fa-search"></i>
+                            </div>
+                        </div>
                     </div>
-                <?php endif; ?>
-            </div>
-        </div>
-        <div class="tache-card-footer">
-            <span class="status-badge status-<?php echo $statut_reel; ?>"><?php echo str_replace('_', ' ', $statut_reel); ?></span>
-            <div class="tache-actions">
-                <?php if ($statut_reel !== 'terminee'): ?>
-                    <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); terminerTache(<?php echo $t['id']; ?>)">
-                        <i class="fas fa-check-circle"></i> Terminer
-                    </button>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-<?php endwhile; ?>
-        <?php else: ?>
-            <div class="empty-state">
-                <i class="fas fa-tasks"></i>
-                <p>Vous n'avez aucune tâche pour le moment.</p>
-            </div>
-        <?php endif; ?>
-    </div>
-</div>
+                        
+                    <div class="taches-grid">
+                        <?php if (isset($taches_result_set) && $taches_result_set->num_rows > 0): ?>
+                            <?php while ($t = $taches_result_set->fetch_assoc()): ?>
+                                <?php
+                                    $statut_reel = $t['statut'];
+                                    $jours_restants = '';
+                                    if ($statut_reel !== 'terminee') {
+                                        $echeance = new DateTime($t['date_echeance']);
+                                        $aujourdhui = new DateTime();
+                                        $diff = $aujourdhui->diff($echeance);
+                                        if ($aujourdhui > $echeance) {
+                                            $statut_reel = 'en_retard';
+                                            $jours_restants = "Échue depuis " . $diff->days . " jour(s)";
+                                        } else {
+                                            $jours_restants = $diff->days . ' jour(s) restant(s)';
+                                        }
+                                    }
+                                ?>
+                                <div class="tache-card status-card-<?php echo $statut_reel; ?>" onclick="voirTache(<?php echo $t['id']; ?>)" style="cursor: pointer;">
+                                    <div class="tache-card-header">
+                                        <h3><?php echo htmlspecialchars($t['titre']); ?></h3>
+                                    </div>
+                                    <div class="tache-card-body">
+                                        <div class="tache-info">
+                                            <div class="info-line">
+                                                <i class="fas fa-calendar-alt"></i>
+                                                Échéance : <span><?php echo date('d/m/Y', strtotime($t['date_echeance'])); ?></span>
+                                            </div>
+                                            <div class="info-line">
+                                                <i class="fas fa-hourglass-half"></i>
+                                                Délai : <span><?php echo $jours_restants; ?></span>
+                                            </div>
+                                            <div class="info-line">
+                                                <i class="fas fa-align-left"></i>
+                                                <p><?php echo htmlspecialchars(substr($t['description'], 0, 80)) . '...'; ?></p>
+                                            </div>
+                                            <?php if ($t['nom_fichier_original']): ?>
+                                                <div class="info-line">
+                                                    <i class="fas fa-paperclip"></i>
+                                                    Fichier joint disponible
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <div class="tache-card-footer">
+                                        <span class="status-badge status-<?php echo $statut_reel; ?>"><?php echo str_replace('_', ' ', $statut_reel); ?></span>
+                                        <div class="tache-actions">
+                                            <?php if ($statut_reel !== 'terminee'): ?>
+                                                <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); terminerTache(<?php echo $t['id']; ?>)">
+                                                    <i class="fas fa-check-circle"></i> Terminer
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <div class="empty-state">
+                                <i class="fas fa-tasks"></i>
+                                <p>Vous n'avez aucune tâche pour le moment.</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
 
+                    <!-- Contrôles de pagination pour les tâches -->
+                    <?php if (isset($total_pages_tasks) && $total_pages_tasks > 1): ?>
+                        <div class="pagination">
+                            <?php if ($current_page_tasks > 1): ?>
+                                <a href="?tab=taches&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_tache=<?php echo $current_page_tasks - 1; ?>" class="page-link">Précédent</a>
+                            <?php endif; ?>
+
+                            <?php for ($i = 1; $i <= $total_pages_tasks; $i++): ?>
+                                <a href="?tab=taches&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_tache=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page_tasks) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+                            <?php endfor; ?>
+
+                            <?php if ($current_page_tasks < $total_pages_tasks): ?>
+                                <a href="?tab=taches&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_tache=<?php echo $current_page_tasks + 1; ?>" class="page-link">Suivant</a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
 
 <?php elseif ($onglet_actif === 'presences'): ?>
     <?php

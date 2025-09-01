@@ -25,7 +25,9 @@ class Tache {
             if (isset($file) && $file['error'] == 0) {
                 $uploadDir = __DIR__ . '/../uploads/taches/';
                 if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0777, true);
+                    if (!mkdir($uploadDir, 0755, true)) { // Utiliser 0755 pour la sécurité
+                        throw new Exception("Échec de la création du répertoire d'upload.");
+                    }
                 }
                 $nom_fichier_original = basename($file['name']);
                 $extension = pathinfo($nom_fichier_original, PATHINFO_EXTENSION);
@@ -57,7 +59,6 @@ class Tache {
             );
             
             if (!$stmt->execute()) {
-                // Si l'exécution échoue, lever une exception
                 throw new Exception("Erreur lors de l'enregistrement de la tâche : " . $stmt->error);
             }
 
@@ -85,73 +86,140 @@ class Tache {
      */
     public function modifier($data, $file) {
         $tache_id = $data['tache_id'];
-        
-        // Gérer le nouveau fichier si fourni
-        if (isset($file) && $file['error'] == 0) {
-            // Supprimer l'ancien fichier
-            $this->supprimerFichier($tache_id);
-            
-            $uploadDir = 'uploads/taches/';
-            $nom_fichier_original = basename($file['name']);
-            $extension = pathinfo($nom_fichier_original, PATHINFO_EXTENSION);
-            $fichier_joint = uniqid('tache_', true) . '.' . $extension;
-            move_uploaded_file($file['tmp_name'], $uploadDir . $fichier_joint);
-            
+        $fichier_joint = null;
+        $nom_fichier_original = null;
+    
+        try {
+            $this->conn->begin_transaction();
+    
+            // Gérer le nouveau fichier si fourni
+            if (isset($file) && $file['error'] == 0) {
+                // Supprimer l'ancien fichier
+                $this->supprimerFichier($tache_id); // Supprime le fichier physique si existant
+                
+                $uploadDir = __DIR__ . '/../uploads/taches/'; // Chemin absolu
+                if (!is_dir($uploadDir)) {
+                    if (!mkdir($uploadDir, 0755, true)) {
+                        throw new Exception("Échec de la création du répertoire d'upload pour modification.");
+                    }
+                }
+                $nom_fichier_original = basename($file['name']);
+                $extension = pathinfo($nom_fichier_original, PATHINFO_EXTENSION);
+                $fichier_joint = uniqid('tache_', true) . '.' . $extension;
+                
+                if (!move_uploaded_file($file['tmp_name'], $uploadDir . $fichier_joint)) {
+                    throw new Exception("Échec du téléversement du nouveau fichier pour modification.");
+                }
+            } else {
+                // Si pas de nouveau fichier, récupérer l'ancien nom de fichier stocké pour le réutiliser
+                $sql_get_old_file = "SELECT fichier_joint, nom_fichier_original FROM taches WHERE id = ?";
+                $stmt_get_old_file = $this->conn->prepare($sql_get_old_file);
+                if ($stmt_get_old_file === false) { throw new Exception("Erreur de préparation SELECT old file: " . $this->conn->error); }
+                $stmt_get_old_file->bind_param("i", $tache_id);
+                $stmt_get_old_file->execute();
+                $old_file_data = $stmt_get_old_file->get_result()->fetch_assoc();
+                $stmt_get_old_file->close();
+                
+                if ($old_file_data) {
+                    $fichier_joint = $old_file_data['fichier_joint'];
+                    $nom_fichier_original = $old_file_data['nom_fichier_original'];
+                }
+            }
+    
+            // Mettre à jour la base de données
             $sql = "UPDATE taches SET stagiaire_id=?, titre=?, description=?, date_echeance=?, fichier_joint=?, nom_fichier_original=? WHERE id=?";
             $stmt = $this->conn->prepare($sql);
+            if ($stmt === false) {
+                throw new Exception("Erreur de préparation de la requête de modification : " . $this->conn->error);
+            }
+    
             $stmt->bind_param(
                 "isssssi",
                 $data['stagiaire_id'],
                 $data['titre'],
                 $data['description'],
                 $data['date_echeance'],
-                $fichier_joint,
-                $nom_fichier_original,
+                $fichier_joint, // Peut être null ou le nouveau/ancien nom
+                $nom_fichier_original, // Peut être null ou le nouveau/ancien nom
                 $tache_id
             );
-        } else {
-            // Mettre à jour sans changer le fichier
-            $sql = "UPDATE taches SET stagiaire_id=?, titre=?, description=?, date_echeance=? WHERE id=?";
-            $stmt = $this->conn->prepare($sql);
-            $stmt->bind_param(
-                "isssi",
-                $data['stagiaire_id'],
-                $data['titre'],
-                $data['description'],
-                $data['date_echeance'],
-                $tache_id
-            );
+            
+            if (!$stmt->execute()) {
+                throw new Exception("Erreur lors de l'enregistrement de la tâche : " . $stmt->error);
+            }
+            $stmt->close();
+    
+            $this->conn->commit();
+            return ['success' => true, 'message' => 'Tâche mise à jour avec succès.'];
+    
+        } catch (Exception $e) {
+            $this->conn->rollback();
+    
+            // Supprimer le nouveau fichier si l'insertion DB a échoué après un upload réussi
+            if ($fichier_joint && file_exists(__DIR__ . '/../uploads/taches/' . $fichier_joint)) {
+                unlink(__DIR__ . '/../uploads/taches/' . $fichier_joint);
+            }
+            
+            error_log("Erreur modification tâche: " . $e->getMessage());
+            return ['success' => false, 'message' => $e->getMessage()];
         }
-        
-        return $stmt->execute();
     }
+    
 
     /**
      * Supprime une tâche
+     * @return array Résultat avec succès et message
      */
     public function supprimer($tache_id) {
-        $this->supprimerFichier($tache_id);
-        $sql = "DELETE FROM taches WHERE id = ?";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param("i", $tache_id);
-        return $stmt->execute();
+        $this->conn->begin_transaction();
+        try {
+            // Supprimer le fichier associé
+            $this->supprimerFichier($tache_id); // Supprime le fichier physique
+
+            // Supprimer l'entrée de la tâche de la base de données
+            $sql = "DELETE FROM taches WHERE id = ?";
+            $stmt = $this->conn->prepare($sql);
+            if ($stmt === false) { throw new Exception("Erreur de préparation DELETE tâche: " . $this->conn->error); }
+            $stmt->bind_param("i", $tache_id);
+            if (!$stmt->execute()) { throw new Exception("Erreur d'exécution DELETE tâche: " . $stmt->error); }
+            $stmt->close();
+            
+            $this->conn->commit();
+            return ['success' => true, 'message' => 'Tâche supprimée avec succès.'];
+
+        } catch (Exception $e) {
+            $this->conn->rollback();
+            error_log("Erreur suppression tâche: " . $e->getMessage());
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
     }
     
     /**
-     * Supprime le fichier associé à une tâche
+     * Supprime le fichier physique associé à une tâche après récupération de son chemin.
+     * @param int $tache_id ID de la tâche
+     * @return bool Vrai si le fichier a été supprimé ou n'existait pas, faux si erreur.
      */
     private function supprimerFichier($tache_id) {
         $sql = "SELECT fichier_joint FROM taches WHERE id = ?";
         $stmt = $this->conn->prepare($sql);
+        if ($stmt === false) {
+            error_log("Erreur de préparation SELECT fichier_joint pour suppression: " . $this->conn->error);
+            return false;
+        }
         $stmt->bind_param("i", $tache_id);
         $stmt->execute();
-        $result = $stmt->get_result()->fetch_assoc();
-        if ($result && !empty($result['fichier_joint'])) {
-            $filePath = 'uploads/taches/' . $result['fichier_joint'];
-            if (file_exists($filePath)) {
-                unlink($filePath);
+        $result = $stmt->get_result();
+        $filePathInDb = $result->fetch_assoc()['fichier_joint'] ?? null;
+        $result->free();
+        $stmt->close();
+    
+        if ($filePathInDb && !empty($filePathInDb)) {
+            $fullPath = __DIR__ . '/../uploads/taches/' . $filePathInDb;
+            if (file_exists($fullPath) && is_file($fullPath)) {
+                return unlink($fullPath);
             }
         }
+        return true; // Retourne vrai si pas de fichier ou si déjà inexistant
     }
 
 
@@ -162,44 +230,97 @@ class Tache {
         // Vérifier que la tâche appartient bien au stagiaire
         $sql = "UPDATE taches SET statut = 'terminee', date_completion = NOW() WHERE id = ? AND stagiaire_id = ?";
         $stmt = $this->conn->prepare($sql);
+        if ($stmt === false) { error_log("Erreur préparation marquerTerminee: " . $this->conn->error); return false; }
         $stmt->bind_param("ii", $tache_id, $stagiaire_id);
-        return $stmt->execute();
+        $success = $stmt->execute();
+        $stmt->close();
+        if (!$success) { error_log("Erreur exécution marquerTerminee: " . $stmt->error); }
+        return ['success' => $success]; // Retourne un tableau pour la cohérence AJAX
     }
 
     /**
-     * Récupère les tâches pour un encadreur, avec recherche
+     * Récupère les tâches pour un encadreur, avec recherche et pagination
+     * @param int $encadreur_id ID de l'encadreur
+     * @param string $recherche Terme de recherche
+     * @param int $page Page actuelle
+     * @param int $limit Nombre de tâches par page
+     * @return array Contenant les tâches et les infos de pagination
      */
-     public function getTachesPourEncadreur($encadreur_id, $recherche = '') {
-        // CORRECTION : Ajout des alias AS pour correspondre à la méthode de l'admin
-    $sql = "SELECT t.*, u.prenom, u.nom 
-        FROM taches t
-        JOIN utilisateurs u ON t.stagiaire_id = u.id
-        WHERE t.encadreur_id = ?";
+    public function getTachesPourEncadreur($encadreur_id, $recherche = '', $page = 1, $limit = 20) { // Limit 20
+        $page = max(1, (int)$page);
+        $limit = max(1, (int)$limit);
+
+        $where_clauses = ["t.encadreur_id = ?"];
+        $params = [$encadreur_id];
+        $types = "i";
         
         if (!empty($recherche)) {
-            $sql .= " AND (t.titre LIKE ? OR u.prenom LIKE ? OR u.nom LIKE ?)";
-        }
-        
-        $sql .= " ORDER BY t.date_echeance DESC";
-        
-        $stmt = $this->conn->prepare($sql);
-        
-        if (!empty($recherche)) {
+            $where_clauses[] = "(t.titre LIKE ? OR u.prenom LIKE ? OR u.nom LIKE ?)";
             $searchTerm = "%" . $recherche . "%";
-            $stmt->bind_param("isss", $encadreur_id, $searchTerm, $searchTerm, $searchTerm);
-        } else {
-            $stmt->bind_param("i", $encadreur_id);
+            array_push($params, $searchTerm, $searchTerm, $searchTerm);
+            $types .= "sss";
+        }
+        $where_full_clause = "WHERE " . implode(" AND ", $where_clauses);
+
+        // 1. Compter le nombre total de tâches
+        $count_sql = "SELECT COUNT(*) as total 
+                      FROM taches t
+                      JOIN utilisateurs u ON t.stagiaire_id = u.id
+                      $where_full_clause";
+        
+        $stmt_count = $this->conn->prepare($count_sql);
+        if (!$stmt_count) {
+             error_log("Erreur préparation comptage taches encadreur: " . $this->conn->error);
+             return ['tasks' => [], 'total_tasks' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
+        }
+        $stmt_count->bind_param($types, ...$params);
+        $stmt_count->execute();
+        $total_tasks = $stmt_count->get_result()->fetch_assoc()['total'];
+        $stmt_count->close();
+
+        // 2. Récupérer les tâches paginées
+        $sql = "SELECT t.*, u.prenom AS stagiaire_prenom, u.nom AS stagiaire_nom 
+                FROM taches t
+                JOIN utilisateurs u ON t.stagiaire_id = u.id
+                $where_full_clause
+                ORDER BY t.date_echeance DESC
+                LIMIT ? OFFSET ?";
+        
+        $offset = ($page - 1) * $limit;
+        $params_main_query = array_merge($params, [$limit, $offset]);
+        $types_main_query = $types . "ii";
+
+        $stmt = $this->conn->prepare($sql);
+        if (!$stmt) {
+            error_log("Erreur préparation requête getTachesPourEncadreur: " . $this->conn->error);
+            return ['tasks' => [], 'total_tasks' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
         }
         
-        $stmt->execute();
-        return $stmt->get_result();
+        $stmt->bind_param($types_main_query, ...$params_main_query);
+        
+        if (!$stmt->execute()) {
+            error_log("Erreur exécution requête getTachesPourEncadreur: " . $stmt->error);
+            return ['tasks' => [], 'total_tasks' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
+        }
+        $tasks_result_set = $stmt->get_result();
+        $stmt->close();
+
+        $total_pages = ceil($total_tasks / $limit);
+
+        return [
+            'tasks' => $tasks_result_set,
+            'total_tasks' => $total_tasks,
+            'current_page' => $page,
+            'limit' => $limit,
+            'total_pages' => $total_pages
+        ];
     }
     
     /**
      * Récupère une tâche par son ID
+     * @return array|null Données de la tâche ou null
      */
      public function getTacheById($tache_id) {
-        // CORRECTION : Ajout des jointures et des alias pour la cohérence
         $sql = "SELECT 
                     t.*,
                     us.prenom AS stagiaire_prenom,
@@ -211,50 +332,101 @@ class Tache {
                 LEFT JOIN utilisateurs ue ON t.encadreur_id = ue.id
                 WHERE t.id = ?";
         $stmt = $this->conn->prepare($sql);
+        if ($stmt === false) { error_log("Erreur préparation getTacheById: " . $this->conn->error); return null; }
         $stmt->bind_param("i", $tache_id);
         $stmt->execute();
-        return $stmt->get_result()->fetch_assoc();
+        $result = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $result;
     }
 
 
     /**
-     * Récupère les tâches pour un stagiaire
+     * Récupère les tâches pour un stagiaire avec pagination
+     * @param int $stagiaire_id ID du stagiaire
+     * @param string $filtre Filtre (toutes, en_cours, terminees, en_retard)
+     * @param string $recherche Terme de recherche
+     * @param int $page Page actuelle
+     * @param int $limit Nombre de tâches par page
+     * @return array Contenant les tâches et les infos de pagination
      */
-    public function getTachesPourStagiaire($stagiaire_id, $filtre = 'toutes', $recherche = '') {
-        // La mise à jour des statuts en retard reste
+    public function getTachesPourStagiaire($stagiaire_id, $filtre = 'toutes', $recherche = '', $page = 1, $limit = 20) { // Limit 20
+        $page = max(1, (int)$page);
+        $limit = max(1, (int)$limit);
+
+        // La mise à jour des statuts en retard reste, mais ne retourne rien
         $this->updateStatutsEnRetard($stagiaire_id);
         
-        $sql = "SELECT * FROM taches WHERE stagiaire_id = ?";
+        $where_clauses = ["stagiaire_id = ?"];
         $params = [$stagiaire_id];
         $types = "i";
         
         // Application du filtre de statut
         switch($filtre) {
             case 'en_cours':
-                $sql .= " AND statut = 'en_attente' AND date_echeance >= CURDATE()";
+                $where_clauses[] = "statut = 'en_attente' AND date_echeance >= CURDATE()";
                 break;
             case 'terminees':
-                $sql .= " AND statut = 'terminee'";
+                $where_clauses[] = "statut = 'terminee'";
                 break;
             case 'en_retard':
-                $sql .= " AND statut = 'en_retard'";
+                $where_clauses[] = "statut = 'en_retard'";
                 break;
         }
 
         // NOUVEAU : Application du filtre de recherche
         if (!empty($recherche)) {
-            $sql .= " AND (titre LIKE ? OR description LIKE ?)";
+            $where_clauses[] = "(titre LIKE ? OR description LIKE ?)";
             $searchTerm = "%{$recherche}%";
             array_push($params, $searchTerm, $searchTerm);
             $types .= "ss";
         }
+        $where_full_clause = "WHERE " . implode(" AND ", $where_clauses);
 
-        $sql .= " ORDER BY date_echeance ASC";
+        // 1. Compter le nombre total de tâches
+        $count_sql = "SELECT COUNT(*) as total 
+                      FROM taches 
+                      $where_full_clause";
         
+        $stmt_count = $this->conn->prepare($count_sql);
+        if (!$stmt_count) {
+             error_log("Erreur préparation comptage taches stagiaire: " . $this->conn->error);
+             return ['tasks' => [], 'total_tasks' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
+        }
+        $stmt_count->bind_param($types, ...$params);
+        $stmt_count->execute();
+        $total_tasks = $stmt_count->get_result()->fetch_assoc()['total'];
+        $stmt_count->close();
+
+        // 2. Récupérer les tâches paginées
+        $sql = "SELECT * FROM taches 
+                $where_full_clause
+                ORDER BY date_echeance ASC
+                LIMIT ? OFFSET ?";
+        
+        $offset = ($page - 1) * $limit;
+        $params_main_query = array_merge($params, [$limit, $offset]);
+        $types_main_query = $types . "ii";
+
         $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param($types, ...$params);
+        if (!$stmt) {
+            error_log("Erreur préparation requête getTachesPourStagiaire: " . $this->conn->error);
+            return ['tasks' => [], 'total_tasks' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
+        }
+        $stmt->bind_param($types_main_query, ...$params_main_query);
         $stmt->execute();
-        return $stmt->get_result();
+        $tasks_result_set = $stmt->get_result();
+        $stmt->close();
+
+        $total_pages = ceil($total_tasks / $limit);
+
+        return [
+            'tasks' => $tasks_result_set,
+            'total_tasks' => $total_tasks,
+            'current_page' => $page,
+            'limit' => $limit,
+            'total_pages' => $total_pages
+        ];
     }
     
     /**
@@ -267,46 +439,95 @@ class Tache {
                 AND statut = 'en_attente' 
                 AND date_echeance < CURDATE()";
         $stmt = $this->conn->prepare($sql);
+        if ($stmt === false) { error_log("Erreur préparation updateStatutsEnRetard: " . $this->conn->error); return false; }
         $stmt->bind_param("i", $stagiaire_id);
-        $stmt->execute();
+        $success = $stmt->execute();
+        $stmt->close();
+        if (!$success) { error_log("Erreur exécution updateStatutsEnRetard: " . $stmt->error); }
+        return $success;
     }
 
-     public static function listerToutesLesTaches($recherche = '') {
+    /**
+     * Liste toutes les tâches du système (utilisé par l'administrateur) avec pagination
+     * @param string $recherche Terme de recherche
+     * @param int $page Page actuelle
+     * @param int $limit Nombre de tâches par page
+     * @return array Contenant les tâches et les infos de pagination
+     */
+     public static function listerToutesLesTaches($recherche = '', $page = 1, $limit = 20) { // Limit 20
         $conn = Database::getConnection();
+        $page = max(1, (int)$page);
+        $limit = max(1, (int)$limit);
         
+        $where_clauses = ["1=1"];
+        $params = [];
+        $types = "";
+
+        if (!empty($recherche)) {
+            $where_clauses[] = "(t.titre LIKE ? OR us.prenom LIKE ? OR us.nom LIKE ? OR ue.prenom LIKE ? OR ue.nom LIKE ?)";
+            $searchTerm = "%" . $recherche . "%";
+            array_push($params, $searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm);
+            $types .= "sssss";
+        }
+        $where_full_clause = "WHERE " . implode(" AND ", $where_clauses);
+
+        // 1. Compter le nombre total de tâches
+        $count_sql = "SELECT COUNT(*) as total 
+                      FROM taches t
+                      JOIN utilisateurs us ON t.stagiaire_id = us.id
+                      LEFT JOIN utilisateurs ue ON t.encadreur_id = ue.id
+                      $where_full_clause";
+        
+        $stmt_count = $conn->prepare($count_sql);
+        if (!$stmt_count) {
+             error_log("Erreur préparation comptage toutes taches: " . $conn->error);
+             return ['tasks' => [], 'total_tasks' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
+        }
+        if (!empty($params)) {
+            $stmt_count->bind_param($types, ...$params);
+        }
+        $stmt_count->execute();
+        $total_tasks = $stmt_count->get_result()->fetch_assoc()['total'];
+        $stmt_count->close();
+
+        // 2. Récupérer les tâches paginées
         $sql = "SELECT t.*, 
                        us.prenom AS stagiaire_prenom, us.nom AS stagiaire_nom,
                        ue.prenom AS encadreur_prenom, ue.nom AS encadreur_nom
                 FROM taches t
                 JOIN utilisateurs us ON t.stagiaire_id = us.id
                 LEFT JOIN utilisateurs ue ON t.encadreur_id = ue.id
-                WHERE 1=1";
-
-        $params = [];
-        $types = "";
-
-        if (!empty($recherche)) {
-            $sql .= " AND (t.titre LIKE ? OR us.prenom LIKE ? OR us.nom LIKE ? OR ue.prenom LIKE ? OR ue.nom LIKE ?)";
-            $searchTerm = "%" . $recherche . "%";
-            array_push($params, $searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm);
-            $types .= "sssss";
-        }
+                $where_full_clause
+                ORDER BY t.date_echeance DESC
+                LIMIT ? OFFSET ?";
         
-        $sql .= " ORDER BY t.date_echeance DESC";
-        
+        $offset = ($page - 1) * $limit;
+        $params_main_query = array_merge($params, [$limit, $offset]);
+        $types_main_query = $types . "ii";
+
         $stmt = $conn->prepare($sql);
-        
-        if (!empty($recherche)) {
-            $stmt->bind_param($types, ...$params);
+        if (!$stmt) {
+            error_log("Erreur préparation requête listerToutesLesTaches: " . $conn->error);
+            return ['tasks' => [], 'total_tasks' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
         }
         
-        $stmt->execute();
-        return $stmt->get_result();
+        $stmt->bind_param($types_main_query, ...$params_main_query);
+        
+        if (!$stmt->execute()) {
+            error_log("Erreur exécution requête listerToutesLesTaches: " . $stmt->error);
+            return ['tasks' => [], 'total_tasks' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
+        }
+        $tasks_result_set = $stmt->get_result();
+        $stmt->close();
+
+        $total_pages = ceil($total_tasks / $limit);
+
+        return [
+            'tasks' => $tasks_result_set,
+            'total_tasks' => $total_tasks,
+            'current_page' => $page,
+            'limit' => $limit,
+            'total_pages' => $total_pages
+        ];
     }
-
-    
-
-
-
 }
-?>

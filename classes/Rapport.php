@@ -17,13 +17,13 @@ if (file_exists(__DIR__ . '/../TCPDF/tcpdf.php')) {
 
 class Rapport {
     private $conn;
-    private $stagiaire_id;
+    private $stagiaire_id; // Utilisé seulement pour le constructeur, peut être rendu statique ou passé comme paramètre
 
     /**
      * Constructeur
      * @param int $stagiaire_id ID du stagiaire
      */
-    public function __construct($stagiaire_id) {
+    public function __construct($stagiaire_id = null) { // Rendre $stagiaire_id optionnel
         $this->conn = Database::getConnection();
         $this->stagiaire_id = $stagiaire_id;
     }
@@ -42,7 +42,7 @@ class Rapport {
         try {
             $this->conn->begin_transaction();
            
-            $info_stagiaire = $this->getInfoStagiaire();
+            $info_stagiaire = $this->getInfoStagiaire($this->stagiaire_id); // Passer l'ID du stagiaire
             if (!$info_stagiaire) {
                 throw new Exception("Stagiaire non trouvé ou pas d'encadreur assigné");
             }
@@ -54,17 +54,23 @@ class Rapport {
             if ($tache_id) {
                 $tache_sql = "SELECT titre FROM taches WHERE id = ?";
                 $tache_stmt = $this->conn->prepare($tache_sql);
+                if ($tache_stmt === false) { throw new Exception("Erreur de préparation getInfoStagiaire: " . $this->conn->error); }
                 $tache_stmt->bind_param("i", $tache_id);
                 $tache_stmt->execute();
                 $tache_result = $tache_stmt->get_result();
                 if ($tache_result->num_rows > 0) {
                     $tache_titre = $tache_result->fetch_assoc()['titre'];
                 }
+                $tache_result->free(); // Libérer le résultat
+                $tache_stmt->close(); // Fermer le statement
             }
 
             $sql = "INSERT INTO rapports (stagiaire_id, tache_id, type, titre, activites, difficultes, solutions, date_soumission, statut)
                     VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 'en attente')";
             $stmt = $this->conn->prepare($sql);
+            if (!$stmt) {
+                throw new Exception("Erreur de préparation de l'insertion du rapport: " . $this->conn->error);
+            }
             
             $stmt->bind_param("iisssss", $this->stagiaire_id, $tache_id, $type, $titre, $activites, $difficultes, $solutions);
            
@@ -72,6 +78,7 @@ class Rapport {
                 throw new Exception("Erreur lors de l'insertion du rapport: " . $stmt->error);
             }
             $rapport_id = $this->conn->insert_id;
+            $stmt->close(); // Fermer le statement
            
             $nom_fichier_pdf = null;
             if (TCPDF_AVAILABLE) {
@@ -81,8 +88,12 @@ class Rapport {
                     
                     $sql_update = "UPDATE rapports SET fichier_pdf = ? WHERE id = ?";
                     $stmt_update = $this->conn->prepare($sql_update);
+                    if (!$stmt_update) {
+                        throw new Exception("Erreur de préparation de la mise à jour du PDF: " . $this->conn->error);
+                    }
                     $stmt_update->bind_param("si", $nom_fichier_pdf, $rapport_id);
                     $stmt_update->execute();
+                    $stmt_update->close(); // Fermer le statement
                 } catch (Exception $pdf_error) {
                     error_log("Erreur génération PDF: " . $pdf_error->getMessage());
                 }
@@ -141,7 +152,7 @@ class Rapport {
        
         $dossier_upload = __DIR__ . '/../uploads/rapports/';
         if (!is_dir($dossier_upload)) {
-            mkdir($dossier_upload, 0777, true);
+            mkdir($dossier_upload, 0755, true); // Utiliser 0755 pour les dossiers pour une meilleure sécurité en production
         }
        
         $pdf->Output($chemin_complet, 'F');
@@ -283,25 +294,26 @@ class Rapport {
 
     /**
      * Récupérer les informations du stagiaire et de son encadreur
+     * @param int $stagiaire_id ID du stagiaire
      * @return array|false Informations ou false si non trouvé
      */
-    private function getInfoStagiaire() {
-    $sql = "SELECT u.id, u.nom, u.prenom, u.email,
-                   e.id_utilisateur AS enc_id,
-                   ue.nom AS enc_nom, ue.prenom AS enc_prenom
-            FROM utilisateurs u
-            JOIN stagiaire s ON u.id = s.id_utilisateur
-            JOIN encadreur e ON s.encadreur_id = e.id_utilisateur
-            JOIN utilisateurs ue ON e.id_utilisateur = ue.id
-            WHERE u.id = ?";
-    
-    $stmt = $this->conn->prepare($sql);
+    private function getInfoStagiaire($stagiaire_id) {
+        $sql = "SELECT u.id, u.nom, u.prenom, u.email,
+                    e.id_utilisateur AS enc_id,
+                    ue.nom AS enc_nom, ue.prenom AS enc_prenom
+                FROM utilisateurs u
+                JOIN stagiaire s ON u.id = s.id_utilisateur
+                LEFT JOIN encadreur e ON s.encadreur_id = e.id_utilisateur
+                LEFT JOIN utilisateurs ue ON e.id_utilisateur = ue.id
+                WHERE u.id = ?";
+        
+        $stmt = $this->conn->prepare($sql);
         if (!$stmt) {
             error_log("Erreur préparation requête getInfoStagiaire: " . $this->conn->error);
             return false;
         }
         
-        $stmt->bind_param("i", $this->stagiaire_id);
+        $stmt->bind_param("i", $stagiaire_id);
         
         if (!$stmt->execute()) {
             error_log("Erreur exécution requête getInfoStagiaire: " . $stmt->error);
@@ -309,6 +321,7 @@ class Rapport {
         }
         
         $result = $stmt->get_result();
+        $stmt->close();
        
         if ($result->num_rows > 0) {
             return $result->fetch_assoc();
@@ -320,88 +333,128 @@ class Rapport {
     /**
      * Envoyer une notification à l'encadreur
      */
-
-private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $nom_fichier_pdf) {
-    if (!isset($info_stagiaire['enc_id']) || !$info_stagiaire['enc_id']) {
-        error_log("Pas d'encadreur assigné pour le stagiaire ID: " . $this->stagiaire_id);
-        return;
-    }
-    
-    try {
-        $message = new Message($this->stagiaire_id);
-        $sujet = "Nouveau rapport soumis : " . $titre_rapport;
-        $contenu = "Bonjour,\n\n";
-        $contenu .= "Le stagiaire " . $info_stagiaire['prenom'] . " " . $info_stagiaire['nom'];
-        $contenu .= " a soumis un nouveau rapport intitulé : \"" . $titre_rapport . "\".\n\n";
-        $contenu .= "Le rapport est maintenant disponible dans votre onglet 'Rapports' en attente de validation.\n\n";
-        $contenu .= "Cordialement,\nSystème de Gestion des Stagiaires";
+    private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $nom_fichier_pdf) {
+        if (!isset($info_stagiaire['enc_id']) || !$info_stagiaire['enc_id']) {
+            error_log("Pas d'encadreur assigné pour le stagiaire ID: " . $this->stagiaire_id);
+            return;
+        }
         
-        // Envoyer à l'ID utilisateur de l'encadreur
-        $message->envoyer($info_stagiaire['enc_id'], $sujet, $contenu);
-    } catch (Exception $e) {
-        error_log("Erreur envoi notification encadreur: " . $e->getMessage());
+        try {
+            $message = new Message($this->stagiaire_id);
+            $sujet = "Nouveau rapport soumis : " . $titre_rapport;
+            $contenu = "Bonjour,\n\n";
+            $contenu .= "Le stagiaire " . $info_stagiaire['prenom'] . " " . $info_stagiaire['nom'];
+            $contenu .= " a soumis un nouveau rapport intitulé : \"" . $titre_rapport . "\".\n\n";
+            $contenu .= "Le rapport est maintenant disponible dans votre onglet 'Rapports' en attente de validation.\n\n";
+            $contenu .= "Cordialement,\nSystème de Gestion des Stagiaires";
+            
+            // Envoyer à l'ID utilisateur de l'encadreur
+            $message->envoyer($info_stagiaire['enc_id'], $sujet, $contenu);
+        } catch (Exception $e) {
+            error_log("Erreur envoi notification encadreur: " . $e->getMessage());
+        }
     }
-}
+
     /**
-     * Récupérer tous les rapports du stagiaire
+     * Récupérer tous les rapports du stagiaire (utilisé par le stagiaire lui-même)
      * @param string $filtre Filtre par type (all, journalier, hebdomadaire, mensuel)
      * @param string $recherche Terme de recherche
-     * @return mysqli_result Résultats de la requête
+     * @param int $page Page actuelle
+     * @param int $limit Nombre de rapports par page
+     * @return array Contenant les rapports et les infos de pagination
      */
-     public function getTousRapports($filtre = 'all', $recherche = '') {
-        $sql = "SELECT r.*, u.nom AS enc_nom, u.prenom AS enc_prenom, t.titre AS tache_titre
-                FROM rapports r
-                LEFT JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur
-                LEFT JOIN utilisateurs u ON s.encadreur_id = u.id
-                LEFT JOIN taches t ON r.tache_id = t.id
-                WHERE r.stagiaire_id = ?";
-       
+    public function getTousRapports($filtre = 'all', $recherche = '', $page = 1, $limit = 20) { // Changed default limit to 20
+        $page = max(1, (int)$page);
+        $limit = max(1, (int)$limit);
+
+        $where_clauses = ["r.stagiaire_id = ?"];
         $params = [$this->stagiaire_id];
         $types = "i";
        
         // Appliquer le filtre par type
         if ($filtre !== 'all' && in_array($filtre, ['journalier', 'hebdomadaire', 'mensuel'])) {
-            $sql .= " AND r.type = ?";
+            $where_clauses[] = "r.type = ?";
             $params[] = $filtre;
             $types .= "s";
         }
        
         // Appliquer la recherche
         if (!empty($recherche)) {
-            $sql .= " AND (r.titre LIKE ? OR r.activites LIKE ?)";
+            $where_clauses[] = "(r.titre LIKE ? OR r.activites LIKE ?)";
             $searchTerm = "%$recherche%";
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
+            array_push($params, $searchTerm, $searchTerm);
             $types .= "ss";
         }
-       
-        $sql .= " ORDER BY r.date_soumission DESC";
+        $where_full_clause = "WHERE " . implode(" AND ", $where_clauses);
+
+        // 1. Compter le nombre total de rapports
+        $count_sql = "SELECT COUNT(*) as total 
+                      FROM rapports r
+                      LEFT JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur
+                      LEFT JOIN utilisateurs u ON s.encadreur_id = u.id
+                      LEFT JOIN taches t ON r.tache_id = t.id
+                      $where_full_clause";
+        
+        $stmt_count = $this->conn->prepare($count_sql);
+        if (!$stmt_count) {
+             error_log("Erreur préparation comptage rapports stagiaire: " . $this->conn->error);
+             return ['rapports' => new mysqli_result($this->conn), 'total_rapports' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
+        }
+        $stmt_count->bind_param($types, ...$params);
+        $stmt_count->execute();
+        $total_rapports = $stmt_count->get_result()->fetch_assoc()['total'];
+        $stmt_count->close();
+
+        // 2. Récupérer les rapports paginés
+        $sql = "SELECT r.*, u.nom AS enc_nom, u.prenom AS enc_prenom, t.titre AS tache_titre
+                FROM rapports r
+                LEFT JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur
+                LEFT JOIN utilisateurs u ON s.encadreur_id = u.id
+                LEFT JOIN taches t ON r.tache_id = t.id
+                $where_full_clause
+                ORDER BY r.date_soumission DESC
+                LIMIT ? OFFSET ?";
+
+        $offset = ($page - 1) * $limit;
+        $params_main_query = array_merge($params, [$limit, $offset]);
+        $types_main_query = $types . "ii";
        
         $stmt = $this->conn->prepare($sql);
         if (!$stmt) {
             error_log("Erreur préparation requête getTousRapports: " . $this->conn->error);
-            return new mysqli_result($this->conn);
+            return ['rapports' => new mysqli_result($this->conn), 'total_rapports' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
         }
         
-        $stmt->bind_param($types, ...$params);
+        $stmt->bind_param($types_main_query, ...$params_main_query);
         
         if (!$stmt->execute()) {
             error_log("Erreur exécution requête getTousRapports: " . $stmt->error);
-            return new mysqli_result($this->conn);
+            return ['rapports' => new mysqli_result($this->conn), 'total_rapports' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
         }
-        
-        return $stmt->get_result();
+        $rapports_result_set = $stmt->get_result();
+        $stmt->close();
+
+        $total_pages = ceil($total_rapports / $limit);
+
+        return [
+            'rapports' => $rapports_result_set,
+            'total_rapports' => $total_rapports,
+            'current_page' => $page,
+            'limit' => $limit,
+            'total_pages' => $total_pages
+        ];
     }
 
     /**
      * Récupérer un rapport par son ID
      * @param int $rapport_id ID du rapport
+     * @param int $user_id ID de l'utilisateur connecté
+     * @param string $role Rôle de l'utilisateur connecté
      * @return array|null Données du rapport ou null
      */
      public static function getRapportById($rapport_id, $user_id, $role) {
         $conn = Database::getConnection();
         
-        // CORRECTION : Ajout de la jointure avec la table 'taches' et de l'alias 'tache_titre'
         $sql = "SELECT r.*,
                        us.nom AS stag_nom, us.prenom AS stag_prenom,
                        ue.nom AS enc_nom, ue.prenom AS enc_prenom,
@@ -414,42 +467,47 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
                 WHERE r.id = ?";
         
         $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+             error_log("Erreur préparation getRapportById: " . $conn->error);
+             return null;
+        }
         $stmt->bind_param("i", $rapport_id);
         $stmt->execute();
         $rapport = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
 
         if (!$rapport) {
-            return null; // Le rapport n\'existe pas
+            return null; // Le rapport n'existe pas
         }
 
         // Vérification des permissions
         if ($role === 'stagiaire') {
             if ($rapport['stagiaire_id'] != $user_id) {
-                return null;
+                return null; // Stagiaire ne peut voir que ses propres rapports
             }
         } elseif ($role === 'encadreur') {
             // Un encadreur ne peut voir que les rapports de ses stagiaires
             $sql_check = "SELECT COUNT(*) FROM stagiaire WHERE id_utilisateur = ? AND encadreur_id = ?";
             $stmt_check = $conn->prepare($sql_check);
+            if (!$stmt_check) {
+                error_log("Erreur préparation check encadreur rapport: " . $conn->error);
+                return null;
+            }
             $stmt_check->bind_param("ii", $rapport['stagiaire_id'], $user_id);
             $stmt_check->execute();
             if ($stmt_check->get_result()->fetch_row()[0] == 0) {
-                 // Sauf si c'est un admin qui utilise ce dashboard
-                $user_role_check_stmt = $conn->prepare("SELECT role FROM utilisateurs WHERE id = ?");
-                $user_role_check_stmt->bind_param("i", $user_id);
-                $user_role_check_stmt->execute();
-                $user_role_check = $user_role_check_stmt->get_result()->fetch_assoc();
-                if ($user_role_check['role'] !== 'admin') {
-                    return null;
-                }
+                 // Si l'utilisateur n'est pas l'encadreur du stagiaire, refuser l'accès.
+                 $stmt_check->close();
+                 return null;
             }
+            $stmt_check->close();
         }
-        // Pour l\'admin, aucune restriction, il peut tout voir.
+        // Pour l'admin, aucune restriction, il peut tout voir.
         
         return $rapport;
     }
     /**
-     * Méthodes statiques pour l'encadreur
+     * Méthodes statiques pour l'encadreur et l'admin
      */
 
     /**
@@ -457,55 +515,93 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
      * @param int $encadreur_id ID de l'encadreur
      * @param string $filtre Filtre par statut
      * @param string $recherche Terme de recherche
-     * @return mysqli_result Résultats de la requête
+     * @param int $page Page actuelle
+     * @param int $limit Nombre de rapports par page
+     * @return array Contenant les rapports et les infos de pagination
      */
-    public static function getRapportsEncadreur($encadreur_id, $filtre = 'all', $recherche = '') {
+    public static function getRapportsEncadreur($encadreur_id, $filtre = 'all', $recherche = '', $page = 1, $limit = 20) { // Changed default limit to 20
         $conn = Database::getConnection();
-        $sql = "SELECT r.*, 
-                   us.nom AS stag_nom, us.prenom AS stag_prenom,
-                   t.titre AS tache_titre -- NOUVEAU : On récupère le titre de la tâche
-            FROM rapports r
-            JOIN utilisateurs us ON r.stagiaire_id = us.id
-            JOIN stagiaire s ON us.id = s.id_utilisateur
-            LEFT JOIN taches t ON r.tache_id = t.id -- NOUVEAU : Jointure avec la table des tâches
-            WHERE s.encadreur_id = ?";
-       
+        $page = max(1, (int)$page);
+        $limit = max(1, (int)$limit);
+
+        $where_clauses = ["s.encadreur_id = ?"];
         $params = [$encadreur_id];
         $types = "i";
        
         // Appliquer le filtre par statut
         if ($filtre !== 'all' && in_array($filtre, ['en_attente', 'validé', 'rejeté'])) {
-            $sql .= " AND r.statut = ?";
+            $where_clauses[] = "r.statut = ?";
             $params[] = str_replace('_', ' ', $filtre);
             $types .= "s";
         }
        
         // Appliquer la recherche
         if (!empty($recherche)) {
-            $sql .= " AND (r.titre LIKE ? OR us.nom LIKE ? OR us.prenom LIKE ?)";
+            $where_clauses[] = "(r.titre LIKE ? OR us.nom LIKE ? OR us.prenom LIKE ? OR t.titre LIKE ?)";
             $searchTerm = "%$recherche%";
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
-            $types .= "sss";
+            array_push($params, $searchTerm, $searchTerm, $searchTerm, $searchTerm);
+            $types .= "ssss";
         }
+        $where_full_clause = "WHERE " . implode(" AND ", $where_clauses);
+
+        // 1. Compter le nombre total de rapports
+        $count_sql = "SELECT COUNT(*) as total 
+                      FROM rapports r
+                      JOIN utilisateurs us ON r.stagiaire_id = us.id
+                      JOIN stagiaire s ON us.id = s.id_utilisateur
+                      LEFT JOIN taches t ON r.tache_id = t.id
+                      $where_full_clause";
+        
+        $stmt_count = $conn->prepare($count_sql);
+        if (!$stmt_count) {
+             error_log("Erreur préparation comptage rapports encadreur: " . $conn->error);
+             return ['rapports' => new mysqli_result($conn), 'total_rapports' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
+        }
+        $stmt_count->bind_param($types, ...$params);
+        $stmt_count->execute();
+        $total_rapports = $stmt_count->get_result()->fetch_assoc()['total'];
+        $stmt_count->close();
+
+        // 2. Récupérer les rapports paginés
+        $sql = "SELECT r.*, 
+                   us.nom AS stag_nom, us.prenom AS stag_prenom,
+                   t.titre AS tache_titre
+            FROM rapports r
+            JOIN utilisateurs us ON r.stagiaire_id = us.id
+            JOIN stagiaire s ON us.id = s.id_utilisateur
+            LEFT JOIN taches t ON r.tache_id = t.id
+            $where_full_clause
+            ORDER BY r.date_soumission DESC
+            LIMIT ? OFFSET ?";
        
-        $sql .= " ORDER BY r.date_soumission DESC";
-       
+        $offset = ($page - 1) * $limit;
+        $params_main_query = array_merge($params, [$limit, $offset]);
+        $types_main_query = $types . "ii";
+
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             error_log("Erreur préparation requête getRapportsEncadreur: " . $conn->error);
-            return new mysqli_result($conn);
+            return ['rapports' => new mysqli_result($conn), 'total_rapports' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
         }
         
-        $stmt->bind_param($types, ...$params);
+        $stmt->bind_param($types_main_query, ...$params_main_query);
         
         if (!$stmt->execute()) {
             error_log("Erreur exécution requête getRapportsEncadreur: " . $stmt->error);
-            return new mysqli_result($conn);
+            return ['rapports' => new mysqli_result($conn), 'total_rapports' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
         }
-        
-        return $stmt->get_result();
+        $rapports_result_set = $stmt->get_result();
+        $stmt->close();
+
+        $total_pages = ceil($total_rapports / $limit);
+
+        return [
+            'rapports' => $rapports_result_set,
+            'total_rapports' => $total_rapports,
+            'current_page' => $page,
+            'limit' => $limit,
+            'total_pages' => $total_pages
+        ];
     }
 
     /**
@@ -518,7 +614,7 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
     public static function changerStatutRapport($rapport_id, $statut, $commentaire = '') {
         $conn = Database::getConnection();
        
-        $sql = "UPDATE rapports SET statut = ?, commentaire_encadreur = ? WHERE id = ?";
+        $sql = "UPDATE rapports SET statut = ?, commentaire_encadreur = ?, date_validation = NOW() WHERE id = ?";
         $stmt = $conn->prepare($sql);
         
         if (!$stmt) {
@@ -532,60 +628,105 @@ private function envoyerNotificationEncadreur($info_stagiaire, $titre_rapport, $
             error_log("Erreur exécution requête changerStatutRapport: " . $stmt->error);
             return false;
         }
-        
+        $stmt->close();
         return true;
     }
 
-    public static function listerTousLesRapports($filtre = 'all', $recherche = '') {
+    /**
+     * Lister tous les rapports du système (utilisé par l'administrateur)
+     * @param string $filtre Filtre par statut
+     * @param string $recherche Terme de recherche
+     * @param int $page Page actuelle
+     * @param int $limit Nombre de rapports par page
+     * @return array Contenant les rapports et les infos de pagination
+     */
+    public static function listerTousLesRapports($filtre = 'all', $recherche = '', $page = 1, $limit = 20) { // Changed default limit to 20
         $conn = Database::getConnection();
-        $sql = "SELECT r.*, 
-                   us.nom AS stag_nom, us.prenom AS stag_prenom,
-                   ue.nom AS enc_nom, ue.prenom AS enc_prenom,
-                   t.titre AS tache_titre -- NOUVEAU : On récupère le titre de la tâche
-            FROM rapports r
-            JOIN utilisateurs us ON r.stagiaire_id = us.id
-            LEFT JOIN stagiaire s ON us.id = s.id_utilisateur
-            LEFT JOIN utilisateurs ue ON s.encadreur_id = ue.id
-            LEFT JOIN taches t ON r.tache_id = t.id -- NOUVEAU : Jointure avec la table des tâches
-            WHERE 1=1"; // Commence par une condition toujours vraie pour faciliter l'ajout des filtres
+        $page = max(1, (int)$page);
+        $limit = max(1, (int)$limit);
 
+        $where_clauses = ["1=1"]; // Commence par une condition toujours vraie
         $params = [];
         $types = "";
        
         // Appliquer le filtre par statut
         if ($filtre !== 'all' && in_array($filtre, ['en_attente', 'validé', 'rejeté'])) {
-            $sql .= " AND r.statut = ?";
+            $where_clauses[] = "r.statut = ?";
             $params[] = str_replace('_', ' ', $filtre);
             $types .= "s";
         }
        
-        // Appliquer la recherche (inclut le nom du stagiaire ET de l'encadreur)
+        // Appliquer la recherche (inclut le nom du stagiaire, de l'encadreur et le titre du rapport)
         if (!empty($recherche)) {
-            $sql .= " AND (r.titre LIKE ? OR us.nom LIKE ? OR us.prenom LIKE ? OR ue.nom LIKE ? OR ue.prenom LIKE ?)";
+            $where_clauses[] = "(r.titre LIKE ? OR us.nom LIKE ? OR us.prenom LIKE ? OR ue.nom LIKE ? OR ue.prenom LIKE ? OR t.titre LIKE ?)";
             $searchTerm = "%$recherche%";
-            array_push($params, $searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm);
-            $types .= "sssss";
+            array_push($params, $searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm);
+            $types .= "ssssss";
         }
+        $where_full_clause = "WHERE " . implode(" AND ", $where_clauses);
+
+        // 1. Compter le nombre total de rapports
+        $count_sql = "SELECT COUNT(*) as total 
+                      FROM rapports r
+                      JOIN utilisateurs us ON r.stagiaire_id = us.id
+                      LEFT JOIN stagiaire s ON us.id = s.id_utilisateur
+                      LEFT JOIN utilisateurs ue ON s.encadreur_id = ue.id
+                      LEFT JOIN taches t ON r.tache_id = t.id
+                      $where_full_clause";
+        
+        $stmt_count = $conn->prepare($count_sql);
+        if (!$stmt_count) {
+             error_log("Erreur préparation comptage tous rapports: " . $conn->error);
+             return ['rapports' => new mysqli_result($conn), 'total_rapports' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
+        }
+        if (!empty($params)) {
+            $stmt_count->bind_param($types, ...$params);
+        }
+        $stmt_count->execute();
+        $total_rapports = $stmt_count->get_result()->fetch_assoc()['total'];
+        $stmt_count->close();
+
+        // 2. Récupérer les rapports paginés
+        $sql = "SELECT r.*, 
+                   us.nom AS stag_nom, us.prenom AS stag_prenom,
+                   ue.nom AS enc_nom, ue.prenom AS enc_prenom,
+                   t.titre AS tache_titre
+            FROM rapports r
+            JOIN utilisateurs us ON r.stagiaire_id = us.id
+            LEFT JOIN stagiaire s ON us.id = s.id_utilisateur
+            LEFT JOIN utilisateurs ue ON s.encadreur_id = ue.id
+            LEFT JOIN taches t ON r.tache_id = t.id
+            $where_full_clause
+            ORDER BY r.date_soumission DESC
+            LIMIT ? OFFSET ?";
        
-        $sql .= " ORDER BY r.date_soumission DESC";
-       
+        $offset = ($page - 1) * $limit;
+        $params_main_query = array_merge($params, [$limit, $offset]);
+        $types_main_query = $types . "ii";
+
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             error_log("Erreur préparation requête listerTousLesRapports: " . $conn->error);
-            return new mysqli_result($conn);
+            return ['rapports' => new mysqli_result($conn), 'total_rapports' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
         }
         
-        if (!empty($params)) {
-            $stmt->bind_param($types, ...$params);
-        }
+        $stmt->bind_param($types_main_query, ...$params_main_query);
         
         if (!$stmt->execute()) {
             error_log("Erreur exécution requête listerTousLesRapports: " . $stmt->error);
-            return new mysqli_result($conn);
+            return ['rapports' => new mysqli_result($conn), 'total_rapports' => 0, 'current_page' => $page, 'limit' => $limit, 'total_pages' => 0];
         }
-        
-        return $stmt->get_result();
+        $rapports_result_set = $stmt->get_result();
+        $stmt->close();
+
+        $total_pages = ceil($total_rapports / $limit);
+
+        return [
+            'rapports' => $rapports_result_set,
+            'total_rapports' => $total_rapports,
+            'current_page' => $page,
+            'limit' => $limit,
+            'total_pages' => $total_pages
+        ];
     }
-
-
 }

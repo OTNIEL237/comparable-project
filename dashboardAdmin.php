@@ -2,14 +2,16 @@
 /**
  * Dashboard principal pour les encadreurs et administrateurs
  */
+date_default_timezone_set('Africa/Douala'); // Définir le fuseau horaire au début
+
 session_start();
+
 require_once 'classes/Database.php';
 require_once 'classes/Message.php';
 require_once 'classes/Rapport.php';
 require_once 'classes/Tache.php';
-require_once 'classes/Theme.php';
+require_once 'classes/Theme.php'; // Assurez-vous que cette ligne est présente
 require_once 'classes/Evaluation.php';
-require_once 'classes/Theme.php';
 require_once 'classes/Presence.php';
 require_once 'classes/Utilisateur.php';
 
@@ -26,28 +28,54 @@ $role = $_SESSION['role'];
 // Initialiser les classes
 $message = new Message($user_id);
 $tache = new Tache();
-// Récupérer les statistiques pour le dashboard
+$rapport_instance = new Rapport(); 
+$theme_instance = new Theme(); // Instanciation pour les méthodes non statiques de Theme (comme creer ou getThemesByEncadreur)
+
+
+// Statistiques pour le dashboard
 $nb_messages_non_lus = $message->compterNonLus();
 
-// Statistiques spécifiques aux encadreurs
+// Statistiques spécifiques aux encadreurs ou admin
 $conn = Database::getConnection();
-$stats_sql = "SELECT 
-    (SELECT COUNT(*) FROM stagiaire WHERE encadreur_id = ?) as nb_stagiaires,
-    (SELECT COUNT(*) FROM rapports r JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur WHERE s.encadreur_id = ?) as nb_rapports_total,
-    (SELECT COUNT(*) FROM rapports r JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur WHERE s.encadreur_id = ? AND r.statut = 'en_attente') as nb_rapports_attente";
-$stats_stmt = $conn->prepare($stats_sql);
-$stats_stmt->bind_param("iii", $user_id, $user_id, $user_id);
-$stats_stmt->execute();
-$stats = $stats_stmt->get_result()->fetch_assoc();
-$stats = [
-    'nb_stagiaires' => $conn->query("SELECT COUNT(*) FROM stagiaire")->fetch_row()[0] ?? 0,
-    'nb_encadreurs' => $conn->query("SELECT COUNT(*) FROM encadreur")->fetch_row()[0] ?? 0,
-    'nb_rapports_attente' => $conn->query("SELECT COUNT(*) FROM rapports WHERE statut = 'en_attente'")->fetch_row()[0] ?? 0,
-];
+$stats = [];
+if ($role === 'admin') {
+    $stats['nb_stagiaires'] = $conn->query("SELECT COUNT(*) FROM stagiaire")->fetch_row()[0] ?? 0;
+    $stats['nb_encadreurs'] = $conn->query("SELECT COUNT(*) FROM encadreur")->fetch_row()[0] ?? 0;
+    $stats['nb_rapports_attente'] = $conn->query("SELECT COUNT(*) FROM rapports WHERE statut = 'en attente'")->fetch_row()[0] ?? 0;
+} else { // Encadreur
+    $stats_sql_encadreur = "SELECT 
+        (SELECT COUNT(*) FROM stagiaire WHERE encadreur_id = ?) as nb_stagiaires,
+        (SELECT COUNT(*) FROM rapports r JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur WHERE s.encadreur_id = ?) as nb_rapports_total,
+        (SELECT COUNT(*) FROM rapports r JOIN stagiaire s ON r.stagiaire_id = s.id_utilisateur WHERE s.encadreur_id = ? AND r.statut = 'en attente') as nb_rapports_attente";
+    $stats_stmt_encadreur = $conn->prepare($stats_sql_encadreur);
+    if ($stats_stmt_encadreur === false) { error_log("Error preparing stats_sql_encadreur: " . $conn->error); }
+    $stats_stmt_encadreur->bind_param("iii", $user_id, $user_id, $user_id);
+    $stats_stmt_encadreur->execute();
+    $stats = $stats_stmt_encadreur->get_result()->fetch_assoc();
+    $stats_stmt_encadreur->close();
+    $stats['nb_encadreurs'] = 0; // Pas pertinent pour un encadreur
+}
+
+// === DÉFINITION DES VARIABLES DE PAGINATION POUR TOUS LES ONGLETTS QUI EN AURONT BESOIN ===
+// Variable de pagination pour les MESSAGES
+$current_page_messages = isset($_GET['p_msg']) ? (int)$_GET['p_msg'] : 1;
+$messages_per_page = 20;
+
+// Variable de pagination pour les RAPPORTS
+$current_page_reports = isset($_GET['p_rpt']) ? (int)$_GET['p_rpt'] : 1;
+$reports_per_page = 20;
+
+// Variable de pagination pour les TÂCHES
+$current_page_tasks = isset($_GET['p_tache']) ? (int)$_GET['p_tache'] : 1;
+$tasks_per_page = 20;
+
+// Variable de pagination pour les THÈMES
+$current_page_themes = isset($_GET['p_theme']) ? (int)$_GET['p_theme'] : 1;
+$themes_per_page = 20;
+// =========================================================================================
+
 
 // Traitement des actions AJAX
-
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
     
@@ -66,9 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'supprimer_message':
             if (isset($_POST['message_id'])) {
                 $message_id = (int)$_POST['message_id'];
-                // Passer le rôle de l'utilisateur connecté à la méthode de suppression
                 $resultat_suppression = $message->supprimerMessage($message_id, $_SESSION['role']);
-                echo json_encode($resultat_suppression); // Envoyer le tableau de résultat directement
+                echo json_encode($resultat_suppression);
             } else {
                 echo json_encode(['success' => false, 'message' => 'ID de message manquant.']);
             }
@@ -92,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'creer_tache':
             $_POST['encadreur_id'] = $user_id;
             $fichier = isset($_FILES['fichier_joint']) ? $_FILES['fichier_joint'] : null;
-                        $resultat = $tache->creer($_POST, $fichier);
+            $resultat = $tache->creer($_POST, $fichier);
             echo json_encode($resultat);
             exit();
 
@@ -116,43 +143,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         case 'creer_theme':
             $_POST['encadreur_id'] = $user_id;
-            $theme = new Theme();
-            $resultat = $theme->creer($_POST);
-            echo json_encode(['success' => $resultat]);
+            $resultat = $theme_instance->creer($_POST);
+            echo json_encode($resultat);
             exit();
 
         case 'modifier_theme':
-            $_POST['encadreur_id'] = $user_id;
-            $theme = new Theme();
-            $resultat = $theme->modifier($_POST);
-            echo json_encode(['success' => $resultat]);
+            $_POST['encadreur_id'] = $user_id; // L'ID de l'utilisateur qui modifie pour la vérification des droits
+            $resultat = Theme::modifier($_POST); // Appel statique
+            echo json_encode($resultat);
             exit();
 
         case 'get_theme_details':
             $theme_id = $_POST['theme_id'];
-            $theme = new Theme();
-            $data = $theme->getThemeById($theme_id);
+            $data = $theme_instance->getThemeById($theme_id);
             echo json_encode($data);
             exit();
 
         case 'supprimer_theme':
             $theme_id = $_POST['theme_id'];
-            $theme = new Theme();
-            $resultat = $theme->supprimer($theme_id, $user_id);
-            echo json_encode(['success' => $resultat]);
+            $resultat = Theme::supprimer($theme_id, $user_id); // Appel statique
+            echo json_encode($resultat);
             exit();
 
         case 'attribuer_theme':
             $theme_id = $_POST['theme_id'];
             $stagiaire_id = $_POST['stagiaire_id'];
-            $theme = new Theme();
-            $resultat = $theme->attribuer($theme_id, $stagiaire_id, $user_id);
-            echo json_encode(['success' => $resultat]);
+            $resultat = Theme::attribuer($theme_id, $stagiaire_id, $user_id); // Appel statique
+            echo json_encode($resultat);
             exit();
 
         case 'get_stagiaire_details':
             header('Content-Type: application/json');
-            $stagiaire_id = $_POST['stagiaire_id'];
+            $stagiaire_id = (int)$_POST['stagiaire_id'];
             
             // Correction : requête différente selon le rôle
             if ($role === 'admin') {
@@ -161,6 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                   JOIN stagiaire s ON u.id = s.id_utilisateur
                                   WHERE u.id = ?";
                 $stmt_stagiaire = $conn->prepare($sql_stagiaire);
+                if ($stmt_stagiaire === false) { error_log("Error preparing sql_stagiaire (admin): " . $conn->error); }
                 $stmt_stagiaire->bind_param("i", $stagiaire_id);
             } else {
                 $sql_stagiaire = "SELECT u.*, s.filiere, s.niveau, s.date_debut, s.date_fin
@@ -168,19 +191,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                   JOIN stagiaire s ON u.id = s.id_utilisateur
                                   WHERE u.id = ? AND s.encadreur_id = ?";
                 $stmt_stagiaire = $conn->prepare($sql_stagiaire);
+                if ($stmt_stagiaire === false) { error_log("Error preparing sql_stagiaire (encadreur): " . $conn->error); }
                 $stmt_stagiaire->bind_param("ii", $stagiaire_id, $user_id);
             }
             $stmt_stagiaire->execute();
             $stagiaire_details = $stmt_stagiaire->get_result()->fetch_assoc();
+            $stmt_stagiaire->close();
 
-            // Récupérer les thèmes disponibles (créés par l'encadreur et non attribués)
-            $theme = new Theme();
-            $themes_result = $theme->getThemesByEncadreur($user_id);
+            $theme = new Theme(); // Nouvelle instance pour les méthodes non statiques si besoin
+            // Correction: getThemesByEncadreur retourne maintenant un tableau, pas un mysqli_result direct
+            $themes_data_for_select = $theme->getThemesByEncadreur($user_id, '', 1, 999); // Récupérer tous les thèmes pour le select
+            $themes_result_for_select = $themes_data_for_select['themes'];
+
             $available_themes = [];
-            while ($th = $themes_result->fetch_assoc()) {
-                if ($th['stagiaire_id'] === null) {
-                    $available_themes[] = $th;
+            if ($themes_result_for_select) {
+                while ($th = $themes_result_for_select->fetch_assoc()) {
+                    if ($th['stagiaire_id'] === null) {
+                        $available_themes[] = $th;
+                    }
                 }
+                $themes_result_for_select->free(); // Libérer le résultat
             }
             
             echo json_encode([
@@ -191,11 +221,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit();
 
         case 'get_rapport_details':
-            // L'ID du rapport est passé en POST
             if (isset($_POST['rapport_id'])) {
                 $rapport_id = (int)$_POST['rapport_id'];
                 
-                // On utilise la méthode statique qui n'a pas besoin d'instance
                 $rapport_details = Rapport::getRapportById($rapport_id, $user_id, $role);
                 
                 if ($rapport_details) {
@@ -217,46 +245,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $rapport_id = (int)$_POST['rapport_id'];
                 $conn = Database::getConnection();
                 
-                // On commence une transaction pour s'assurer que tout se passe bien
                 $conn->begin_transaction();
 
                 try {
-                    // 1. Récupérer le nom du fichier PDF avant de supprimer l'enregistrement
                     $stmt_select = $conn->prepare("SELECT fichier_pdf FROM rapports WHERE id = ?");
+                    if ($stmt_select === false) { throw new Exception("Erreur de préparation SELECT fichier_pdf: " . $conn->error); }
                     $stmt_select->bind_param("i", $rapport_id);
                     $stmt_select->execute();
                     $result = $stmt_select->get_result();
                     $row = $result->fetch_assoc();
+                    $result->free();
                     $stmt_select->close();
 
-                    // 2. Supprimer l'enregistrement de la base de données
                     $stmt_delete = $conn->prepare("DELETE FROM rapports WHERE id = ?");
+                    if ($stmt_delete === false) { throw new Exception("Erreur de préparation DELETE rapports: " . $conn->error); }
                     $stmt_delete->bind_param("i", $rapport_id);
                     $stmt_delete->execute();
 
                     if ($stmt_delete->affected_rows > 0) {
-                        // 3. Si la suppression en BDD a réussi, on supprime le fichier physique
                         if ($row && !empty($row['fichier_pdf'])) {
-                            // Utiliser un chemin absolu pour plus de fiabilité
                             $file_path = __DIR__ . '/uploads/rapports/' . $row['fichier_pdf'];
-                            if (file_exists($file_path)) {
+                            if (file_exists($file_path) && is_file($file_path)) {
                                 unlink($file_path);
                             }
                         }
-                        // Valider la transaction
                         $conn->commit();
                         echo json_encode(['success' => true, 'message' => 'Rapport supprimé avec succès.']);
                     } else {
-                        // Annuler si le rapport n'a pas été trouvé
                         $conn->rollback();
                         echo json_encode(['success' => false, 'message' => 'Le rapport n\'a pas été trouvé ou a déjà été supprimé.']);
                     }
                     $stmt_delete->close();
 
                 } catch (Exception $e) {
-                    // Annuler la transaction en cas d'erreur
                     $conn->rollback();
-                    // Log de l'erreur pour le débogage
                     error_log('Erreur de suppression de rapport: ' . $e->getMessage());
                     echo json_encode(['success' => false, 'message' => 'Une erreur de base de données est survenue lors de la suppression.']);
                 }
@@ -267,7 +289,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         case 'sauvegarder_evaluation':
             $evaluation = new Evaluation();
-            // On appelle la nouvelle méthode "sauvegarder"
             $resultat = $evaluation->sauvegarder($_POST);
             echo json_encode(['success' => $resultat]);
             exit();
@@ -309,18 +330,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $resultat = Utilisateur::supprimer((int)$_POST['user_id']);
             echo json_encode(['success' => $resultat]);
             exit();
-
-
     }
 }
-
-
 
 
 // Récupérer les données selon l'onglet actif
 $onglet_actif = isset($_GET['tab']) ? $_GET['tab'] : 'dashboard';
 $filtre = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 $recherche = isset($_GET['search']) ? $_GET['search'] : '';
+
+
+// === DÉFINITION DES VARIABLES DE PAGINATION POUR TOUS LES ONGLETTS QUI EN AURONT BESOIN ===
+// Variable de pagination pour les MESSAGES
+$current_page_messages = isset($_GET['p_msg']) ? (int)$_GET['p_msg'] : 1;
+$messages_per_page = 20;
+
+// Variable de pagination pour les RAPPORTS
+$current_page_reports = isset($_GET['p_rpt']) ? (int)$_GET['p_rpt'] : 1;
+$reports_per_page = 20;
+
+// Variable de pagination pour les TÂCHES
+$current_page_tasks = isset($_GET['p_tache']) ? (int)$_GET['p_tache'] : 1;
+$tasks_per_page = 20;
+
+// Variable de pagination pour les THÈMES
+$current_page_themes = isset($_GET['p_theme']) ? (int)$_GET['p_theme'] : 1;
+$themes_per_page = 20;
+// =========================================================================================
+
 
 switch ($onglet_actif) {
 
@@ -330,36 +367,41 @@ switch ($onglet_actif) {
         break;
 
     case 'messagerie':
-        // Récupérer le numéro de page actuel depuis l'URL, par défaut 1
-        $current_page = isset($_GET['p']) ? (int)$_GET['p'] : 1;
-        $messages_per_page = 10; // Définissez le nombre de messages par page ici
-
         // Appel de la méthode getMessages avec les paramètres de pagination
-        // Assurez-vous que votre classe Message a bien la méthode getMessages mise à jour
-        $message_data = $message->getMessages($filtre, $recherche, $current_page, $messages_per_page);
+        $message_data = $message->getMessages($filtre, $recherche, $current_page_messages, $messages_per_page);
 
         // Extrayez les données nécessaires pour l'affichage
-        $messages_result_set = $message_data['messages']; // C'est le mysqli_result que vous utiliserez pour afficher les messages
+        $messages_result_set = $message_data['messages'];
         $total_messages = $message_data['total_messages'];
-        $current_page = $message_data['current_page']; // Récupère la page après ajustement éventuel dans la classe
-        $limit = $message_data['limit']; // La limite par page
-        $total_pages = $message_data['total_pages']; // Nombre total de pages
+        $current_page_messages = $message_data['current_page'];
+        $limit_messages = $message_data['limit'];
+        $total_pages_messages = $message_data['total_pages'];
 
-        $utilisateurs = $message->getUtilisateursDisponibles(); // Garder pour le modal d'envoi de message
+        $utilisateurs = $message->getUtilisateursDisponibles();
         break;
+
     case 'rapports':
+        $rapport_data = [];
         if ($role === 'admin') {
             // L'admin voit TOUS les rapports du système
-            $rapports = Rapport::listerTousLesRapports($filtre, $recherche);
+            $rapport_data = Rapport::listerTousLesRapports($filtre, $recherche, $current_page_reports, $reports_per_page);
         } else {
             // L'encadreur ne voit que les rapports de ses stagiaires
-            $rapports = Rapport::getRapportsEncadreur($user_id, $filtre, $recherche);
+            $rapport_data = Rapport::getRapportsEncadreur($user_id, $filtre, $recherche, $current_page_reports, $reports_per_page);
         }
+        $rapports_result_set = $rapport_data['rapports'];
+        $total_rapports = $rapport_data['total_rapports'];
+        $current_page_reports = $rapport_data['current_page'];
+        $limit_reports = $rapport_data['limit'];
+        $total_pages_reports = $rapport_data['total_pages'];
         break;
+
      case 'gestion-stagiaires':
         // La requête de base sélectionne tous les stagiaires et leur encadreur
+        // Récupérer les stagiaires avec leurs encadreurs pour l'affichage
         $sql = "SELECT u.id, u.nom, u.prenom, u.email, s.date_debut, s.date_fin,
-                       ue.prenom as encadreur_prenom, ue.nom as encadreur_nom
+                       ue.prenom as encadreur_prenom, ue.nom as encadreur_nom,
+                       s.encadreur_id -- Important pour le bouton d'affectation
                 FROM utilisateurs u 
                 JOIN stagiaire s ON u.id = s.id_utilisateur
                 LEFT JOIN utilisateurs ue ON s.encadreur_id = ue.id";
@@ -375,7 +417,6 @@ switch ($onglet_actif) {
         }
 
         if (!empty($recherche)) {
-            // Ajoute 'AND' si un 'WHERE' existe déjà, sinon 'WHERE'
             $sql .= (strpos($sql, 'WHERE') === false) ? " WHERE" : " AND";
             $sql .= " (u.nom LIKE ? OR u.prenom LIKE ? OR u.email LIKE ? OR ue.nom LIKE ? OR ue.prenom LIKE ?)";
             $searchTerm = "%{$recherche}%";
@@ -385,168 +426,202 @@ switch ($onglet_actif) {
         $sql .= " ORDER BY u.nom, u.prenom";
 
         $stmt = $conn->prepare($sql);
+        if ($stmt === false) { error_log("Error preparing sql (gestion-stagiaires): " . $conn->error); }
         if (!empty($params)) {
             $stmt->bind_param($types, ...$params);
         }
         $stmt->execute();
         $stagiaires = $stmt->get_result();
+        $stmt->close();
+        
+        $liste_encadreurs = Utilisateur::listerEncadreurs(); // Nécessaire pour le modal d'affectation
         break;
 
      case 'taches':
-        // Récupérer les stagiaires pour le modal de création
         if ($role === 'admin') {
-            // L'admin voit tous les stagiaires
             $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur ORDER BY u.nom, u.prenom";
             $stagiaires_stmt = $conn->prepare($stagiaires_sql);
+            if ($stagiaires_stmt === false) { error_log("Error preparing stagiaires_sql (admin-taches): " . $conn->error); }
         } else {
-            // L'encadreur ne voit que ses stagiaires
             $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur WHERE s.encadreur_id = ? ORDER BY u.nom, u.prenom";
             $stagiaires_stmt = $conn->prepare($stagiaires_sql);
+            if ($stagiaires_stmt === false) { error_log("Error preparing stagiaires_sql (encadreur-taches): " . $conn->error); }
             $stagiaires_stmt->bind_param("i", $user_id);
         }
         $stagiaires_stmt->execute();
         $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stagiaires_stmt->close();
 
-        // Récupérer les tâches en fonction du rôle
+        $tache_data = null;
         if ($role === 'admin') {
-            $taches_result = Tache::listerToutesLesTaches($recherche);
+            $tache_data = Tache::listerToutesLesTaches($recherche, $current_page_tasks, $tasks_per_page);
         } else {
-            $taches_result = $tache->getTachesPourEncadreur($user_id, $recherche);
+            $tache_data = $tache->getTachesPourEncadreur($user_id, $recherche, $current_page_tasks, $tasks_per_page);
         }
+        
+        $taches_result_set = $tache_data['tasks'];
+        $total_tasks = $tache_data['total_tasks'];
+        $current_page_tasks = $tache_data['current_page'];
+        $limit_tasks = $tache_data['limit'];
+        $total_pages_tasks = $tache_data['total_pages'];
 
-        // Organiser les tâches par jour pour l'affichage
         $taches_par_jour = [];
-        while($t = $taches_result->fetch_assoc()) {
-            $echeance = $t['date_echeance'];
-            if (!isset($taches_par_jour[$echeance])) {
-                $taches_par_jour[$echeance] = [];
+        if ($taches_result_set) {
+            $temp_tasks_for_grouping = [];
+            while($t_temp = $taches_result_set->fetch_assoc()) {
+                $temp_tasks_for_grouping[] = $t_temp;
             }
-            $taches_par_jour[$echeance][] = $t;
+            $taches_result_set->data_seek(0); 
+            
+            foreach ($temp_tasks_for_grouping as $t) {
+                $echeance = $t['date_echeance'];
+                if (!isset($taches_par_jour[$echeance])) {
+                    $taches_par_jour[$echeance] = [];
+                }
+                $taches_par_jour[$echeance][] = $t;
+            }
         }
-        ksort($taches_par_jour); // Trier par date
+        ksort($taches_par_jour);
         break;
 
     case 'presences':
-        // Charger la liste des stagiaires pour le sélecteur
+        $stmt = null;
         if ($role === 'admin') {
              $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur ORDER BY u.nom, u.prenom";
              $stmt = $conn->prepare($stagiaires_sql);
+             if ($stmt === false) { error_log("Error preparing stagiaires_sql (admin-presences): " . $conn->error); }
         } else {
              $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur WHERE s.encadreur_id = ? ORDER BY u.nom, u.prenom";
              $stmt = $conn->prepare($stagiaires_sql);
+             if ($stmt === false) { error_log("Error preparing stagiaires_sql (encadreur-presences): " . $conn->error); }
              $stmt->bind_param("i", $user_id);
         }
-        $stmt->execute();
-        $stagiaires_encadreur = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        if ($stmt) {
+            $stmt->execute();
+            $stagiaires_encadreur = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+        } else {
+            $stagiaires_encadreur = [];
+        }
         break;
 
    case 'profil':
-        // On va calculer le nombre de stagiaires spécifique à ce profil
         $profil_nb_stagiaires = 0;
 
         if ($role === 'admin') {
-            // Pour l'admin, on récupère les infos de base depuis la table utilisateurs
             $profil_sql = "SELECT * FROM utilisateurs WHERE id = ?";
             $profil_stmt = $conn->prepare($profil_sql);
+            if ($profil_stmt === false) { error_log("Error preparing profil_sql (admin-profil): " . $conn->error); }
             $profil_stmt->bind_param("i", $user_id);
             $profil_stmt->execute();
             $profil = $profil_stmt->get_result()->fetch_assoc();
+            $profil_stmt->close();
 
-            // On ajoute manuellement les champs qui n'existent pas pour un admin
-            // pour éviter les erreurs dans l'affichage.
             $profil['poste'] = 'Administrateur Système';
             $profil['service'] = 'Administration';
             
-            // L'admin supervise tous les stagiaires du système
             $profil_nb_stagiaires = $conn->query("SELECT COUNT(*) FROM stagiaire")->fetch_row()[0] ?? 0;
 
         } else { // Si c'est un encadreur
-            // On utilise la requête existante qui joint la table encadreur
             $profil_sql = "SELECT u.*, e.poste, e.service 
                            FROM utilisateurs u 
                            JOIN encadreur e ON u.id = e.id_utilisateur 
                            WHERE u.id = ?";
             $profil_stmt = $conn->prepare($profil_sql);
+            if ($profil_stmt === false) { error_log("Error preparing profil_sql (encadreur-profil): " . $conn->error); }
             $profil_stmt->bind_param("i", $user_id);
             $profil_stmt->execute();
             $profil = $profil_stmt->get_result()->fetch_assoc();
+            $profil_stmt->close();
 
-            // L'encadreur ne supervise que ses propres stagiaires
             $stmt_stag = $conn->prepare("SELECT COUNT(*) FROM stagiaire WHERE encadreur_id = ?");
+            if ($stmt_stag === false) { error_log("Error preparing stmt_stag (profil): " . $conn->error); }
             $stmt_stag->bind_param("i", $user_id);
             $stmt_stag->execute();
             $profil_nb_stagiaires = $stmt_stag->get_result()->fetch_row()[0] ?? 0;
+            $stmt_stag->close();
         }
         break;
 
     case 'gestion-theme':
-        $theme = new Theme();
-        
-        // Logique de récupération des thèmes en fonction du rôle
+        $theme_data = null;
         if ($role === 'admin') {
-            $themes = Theme::listerTousLesThemes($recherche);
+            $theme_data = Theme::listerTousLesThemes($recherche, $current_page_themes, $themes_per_page); // Appel avec pagination
         } else {
-            $themes = $theme->getThemesByEncadreur($user_id, $recherche);
+            $theme_data = $theme_instance->getThemesByEncadreur($user_id, $recherche, $current_page_themes, $themes_per_page); // Appel avec pagination
         }
         
+        $themes_result_set = $theme_data['themes'];
+        $total_themes = $theme_data['total_themes'];
+        $current_page_themes = $theme_data['current_page'];
+        $limit_themes = $theme_data['limit'];
+        $total_pages_themes = $theme_data['total_pages'];
+        
         // Logique pour peupler la liste des stagiaires dans les modaux d'attribution
+        $stagiaires_stmt = null;
         if ($role === 'admin') {
-            $stagiaires_sql = "SELECT u.id, u.prenom, u.nom 
-                               FROM utilisateurs u 
-                               JOIN stagiaire s ON u.id = s.id_utilisateur ORDER BY u.nom, u.prenom";
+            $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur ORDER BY u.nom, u.prenom";
             $stagiaires_stmt = $conn->prepare($stagiaires_sql);
+            if ($stagiaires_stmt === false) { error_log("Error preparing stagiaires_sql (admin-themes): " . $conn->error); }
         } else {
-            $stagiaires_sql = "SELECT u.id, u.prenom, u.nom 
-                               FROM utilisateurs u 
-                               JOIN stagiaire s ON u.id = s.id_utilisateur 
-                               WHERE s.encadreur_id = ? ORDER BY u.nom, u.prenom";
+            $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur WHERE s.encadreur_id = ? ORDER BY u.nom, u.prenom";
             $stagiaires_stmt = $conn->prepare($stagiaires_sql);
+            if ($stagiaires_stmt === false) { error_log("Error preparing stagiaires_sql (encadreur-themes): " . $conn->error); }
             $stagiaires_stmt->bind_param("i", $user_id);
         }
         
-        $stagiaires_stmt->execute();
-        $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        if ($stagiaires_stmt) {
+            $stagiaires_stmt->execute();
+            $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stagiaires_stmt->close();
+        } else {
+            $stagiaires_encadreur = [];
+        }
         break;
 
-    
-
     case 'evaluation':
-        // --- Récupération de la liste des stagiaires pour l'affichage ---
+        $stagiaires_stmt = null;
         if ($role === 'admin') {
-            $stagiaires_sql = "SELECT u.id, u.prenom, u.nom 
-                               FROM utilisateurs u 
-                               JOIN stagiaire s ON u.id = s.id_utilisateur";
+            $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur";
             $params = [];
             $types = "";
+            $stagiaires_stmt = $conn->prepare($stagiaires_sql);
+            if ($stagiaires_stmt === false) { error_log("Error preparing stagiaires_sql (admin-evaluation): " . $conn->error); }
         } else {
-            $stagiaires_sql = "SELECT u.id, u.prenom, u.nom 
-                               FROM utilisateurs u 
-                               JOIN stagiaire s ON u.id = s.id_utilisateur 
-                               WHERE s.encadreur_id = ?";
+            $stagiaires_sql = "SELECT u.id, u.prenom, u.nom FROM utilisateurs u JOIN stagiaire s ON u.id = s.id_utilisateur WHERE s.encadreur_id = ?";
             $params = [$user_id];
             $types = "i";
+            $stagiaires_stmt = $conn->prepare($stagiaires_sql);
+            if ($stagiaires_stmt === false) { error_log("Error preparing stagiaires_sql (encadreur-evaluation): " . $conn->error); }
         }
         
-        if (!empty($recherche)) {
-            $stagiaires_sql .= (strpos($stagiaires_sql, 'WHERE') === false) ? " WHERE" : " AND";
-            $stagiaires_sql .= " (u.nom LIKE ? OR u.prenom LIKE ?)";
+        if ($stagiaires_stmt && !empty($recherche)) {
+            $stagiaires_sql_with_search = $stagiaires_sql . (strpos($stagiaires_sql, 'WHERE') === false ? " WHERE" : " AND") . " (u.nom LIKE ? OR u.prenom LIKE ?)";
             $searchTerm = "%{$recherche}%";
             array_push($params, $searchTerm, $searchTerm);
             $types .= "ss";
+            $temp_stmt = $conn->prepare($stagiaires_sql_with_search);
+            if ($temp_stmt === false) { error_log("Error preparing stagiaires_sql_with_search (evaluation): " . $conn->error); }
+            $stagiaires_stmt->close();
+            $stagiaires_stmt = $temp_stmt;
         }
         
-        $stagiaires_stmt = $conn->prepare($stagiaires_sql);
-        if(!empty($params)){
-            $stagiaires_stmt->bind_param($types, ...$params);
+        if ($stagiaires_stmt) {
+            if(!empty($params)){
+                $stagiaires_stmt->bind_param($types, ...$params);
+            }
+            $stagiaires_stmt->execute();
+            $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stagiaires_stmt->close();
+        } else {
+            $stagiaires_encadreur = [];
         }
-        $stagiaires_stmt->execute();
-        $stagiaires_encadreur = $stagiaires_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-        // --- Logique pour afficher les détails d'un stagiaire sélectionné ---
+        $evaluation_data = null;
+        $stagiaire_info = null;
         if (isset($_GET['stagiaire_id'])) {
             $stagiaire_id_eval = intval($_GET['stagiaire_id']);
             
-            // La vérification de sécurité fonctionne pour l'admin car sa liste $stagiaires_encadreur est complète
             $is_my_stagiaire = false;
             foreach ($stagiaires_encadreur as $stag) {
                 if ($stag['id'] == $stagiaire_id_eval) {
@@ -562,11 +637,9 @@ switch ($onglet_actif) {
             }
         }
         break;
-    
 }
 
 ?>
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -832,26 +905,24 @@ switch ($onglet_actif) {
     <?php endif; ?>
     </div>
 
-                    <!-- Contrôles de pagination -->
-                    <?php if ($total_pages > 1): ?>
+      <?php if (isset($total_pages_messages) && $total_pages_messages > 1): ?>
                         <div class="pagination">
-                            <?php if ($current_page > 1): ?>
-                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page - 1; ?>" class="page-link">Précédent</a>
+                            <?php if ($current_page_messages > 1): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page_messages - 1; ?>" class="page-link">Précédent</a>
                             <?php endif; ?>
 
-                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+                            <?php for ($i = 1; $i <= $total_pages_messages; $i++): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page_messages) ? 'active' : ''; ?>"><?php echo $i; ?></a>
                             <?php endfor; ?>
 
-                            <?php if ($current_page < $total_pages): ?>
-                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page + 1; ?>" class="page-link">Suivant</a>
+                            <?php if ($current_page_messages < $total_pages_messages): ?>
+                                <a href="?tab=messagerie&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p=<?php echo $current_page_messages + 1; ?>" class="page-link">Suivant</a>
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>
 
-
-            <?php elseif ($onglet_actif === 'rapports'): ?>
+                <?php elseif ($onglet_actif === 'rapports'): ?>
                 <div class="rapports-content">
                     <div class="toolbar">
                         <div class="toolbar-left">
@@ -873,8 +944,8 @@ switch ($onglet_actif) {
                     </div>
 
                     <div class="rapports-list">
-    <?php if (isset($rapports) && $rapports->num_rows > 0): ?>
-        <?php while ($rpt = $rapports->fetch_assoc()): ?>
+    <?php if (isset($rapports_result_set) && $rapports_result_set->num_rows > 0): ?>
+        <?php while ($rpt = $rapports_result_set->fetch_assoc()): ?>
             <div class="rapport-item">
                 <div class="rapport-header">
                     <div class="rapport-info">
@@ -931,12 +1002,7 @@ switch ($onglet_actif) {
                             
                         </button>
                     <?php endif; ?>
-                    <!-- AJOUT DU BOUTON SUPPRIMER POUR L'ADMIN -->
-                    <?php if ($role === 'admin'): ?>
-                        <button class="btn btn-sm btn-danger" title="Supprimer" onclick="supprimerRapport(event, <?php echo $rpt['id']; ?>, this)">
-                            <i class="fas fa-trash"></i> 
-                        </button>
-                    <?php endif; ?>
+                   
                 </div>
             </div>
         <?php endwhile; ?>
@@ -948,11 +1014,32 @@ switch ($onglet_actif) {
     <?php endif; ?>
 </div>
 
+ <!-- Contrôles de pagination pour les rapports -->
+                    <?php if (isset($total_pages_reports) && $total_pages_reports > 1): ?>
+                        <div class="pagination">
+                            <?php if ($current_page_reports > 1): ?>
+                                <a href="?tab=rapports&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_rpt=<?php echo $current_page_reports - 1; ?>" class="page-link">Précédent</a>
+                            <?php endif; ?>
+
+                            <?php for ($i = 1; $i <= $total_pages_reports; $i++): ?>
+                                <a href="?tab=rapports&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_rpt=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page_reports) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+                            <?php endfor; ?>
+
+                            <?php if ($current_page_reports < $total_pages_reports): ?>
+                                <a href="?tab=rapports&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_rpt=<?php echo $current_page_reports + 1; ?>" class="page-link">Suivant</a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+
+
+            
                     
 
 
 
-    <?php elseif ($onglet_actif === 'taches'): ?>
+   <?php elseif ($onglet_actif === 'taches'): ?>
 <div class="taches-content">
     <div class="toolbar">
         <div class="toolbar-left">
@@ -971,7 +1058,7 @@ switch ($onglet_actif) {
 
     <!-- Vue Calendrier/Liste -->
     <div class="taches-calendar-view">
-        <?php if (!empty($taches_par_jour)): ?>
+        <?php if (isset($taches_par_jour) && !empty($taches_par_jour)): ?>
             <?php foreach ($taches_par_jour as $jour => $taches_du_jour): ?>
                 <div class="calendar-day">
                     <h3 class="calendar-day-header">
@@ -996,13 +1083,9 @@ switch ($onglet_actif) {
                                     <div class="tache-info">
                                         <div class="info-line">
                                             <i class="fas fa-user-graduate"></i>
-                                            <!-- ======================================================== -->
-                                            <!-- ==          C'EST CETTE LIGNE QUI EST CORRIGÉE          == -->
-                                            <!-- ======================================================== -->
                                             <span><?php echo htmlspecialchars($t['stagiaire_prenom'] . ' ' . $t['stagiaire_nom']); ?></span>
                                         </div>
 
-                                        <!-- Ce bloc pour l'admin est déjà correct -->
                                         <?php if ($role === 'admin' && isset($t['encadreur_prenom'])): ?>
                                             <div class="info-line assigned-by">
                                                 <i class="fas fa-user-tie"></i>
@@ -1040,9 +1123,6 @@ switch ($onglet_actif) {
                                 </div>
                             </div>
                         <?php endforeach; ?>
-
-                       
-                        
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -1053,6 +1133,22 @@ switch ($onglet_actif) {
             </div>
         <?php endif; ?>
     </div>
+    <!-- Contrôles de pagination pour les tâches -->
+    <?php if (isset($total_pages_tasks) && $total_pages_tasks > 1): ?>
+        <div class="pagination">
+            <?php if ($current_page_tasks > 1): ?>
+                <a href="?tab=taches&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_tache=<?php echo $current_page_tasks - 1; ?>" class="page-link">Précédent</a>
+            <?php endif; ?>
+
+            <?php for ($i = 1; $i <= $total_pages_tasks; $i++): ?>
+                <a href="?tab=taches&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_tache=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page_tasks) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+            <?php endfor; ?>
+
+            <?php if ($current_page_tasks < $total_pages_tasks): ?>
+                <a href="?tab=taches&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_tache=<?php echo $current_page_tasks + 1; ?>" class="page-link">Suivant</a>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
 </div>
 
 
@@ -1349,7 +1445,7 @@ switch ($onglet_actif) {
     </div>
 
      
-            <?php elseif ($onglet_actif === 'gestion-theme'): ?>
+<?php elseif ($onglet_actif === 'gestion-theme'): ?>
 <div class="themes-content">
     <div class="toolbar">
         <div class="toolbar-actions">
@@ -1368,8 +1464,8 @@ switch ($onglet_actif) {
         </div>
     </div>
         <div class="themes-grid">
-        <?php if ($themes->num_rows > 0): ?>
-            <?php while($th = $themes->fetch_assoc()): ?>
+        <?php if (isset($themes_result_set) && $themes_result_set->num_rows > 0): ?>
+            <?php while($th = $themes_result_set->fetch_assoc()): ?>
                 <div class="theme-card">
                     <div class="theme-card-header">
                         <h3><?php echo htmlspecialchars($th['titre']); ?></h3>
@@ -1428,7 +1524,22 @@ switch ($onglet_actif) {
             </div>
         <?php endif; ?>
     </div>
-</div>
+    <!-- Contrôles de pagination pour les thèmes -->
+    <?php if (isset($total_pages_themes) && $total_pages_themes > 1): ?>
+        <div class="pagination">
+            <?php if ($current_page_themes > 1): ?>
+                <a href="?tab=gestion-theme&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_theme=<?php echo $current_page_themes - 1; ?>" class="page-link">Précédent</a>
+            <?php endif; ?>
+
+            <?php for ($i = 1; $i <= $total_pages_themes; $i++): ?>
+                <a href="?tab=gestion-theme&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_theme=<?php echo $i; ?>" class="page-link <?php echo ($i == $current_page_themes) ? 'active' : ''; ?>"><?php echo $i; ?></a>
+            <?php endfor; ?>
+
+            <?php if ($current_page_themes < $total_pages_themes): ?>
+                <a href="?tab=gestion-theme&filter=<?php echo htmlspecialchars($filtre); ?>&search=<?php echo htmlspecialchars($recherche); ?>&p_theme=<?php echo $current_page_themes + 1; ?>" class="page-link">Suivant</a>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
 </div>
 
     <?php elseif ($onglet_actif === 'evaluation'): ?>

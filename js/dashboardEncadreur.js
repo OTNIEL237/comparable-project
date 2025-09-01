@@ -710,6 +710,80 @@ async function voirTache(tacheId) {
     }
 }
 
+function filtrerMessages(filtre) {
+    const url = new URL(window.location);
+    url.searchParams.set('tab', 'messagerie');
+    url.searchParams.set('filter', filtre);
+    url.searchParams.delete('search'); // Réinitialiser la recherche lors du filtrage
+    url.searchParams.delete('p');      // Réinitialiser la page à 1 lors du filtrage
+    window.location.href = url.toString();
+}
+
+function rechercherMessages(terme) {
+    // Utilise un délai pour ne pas recharger la page à chaque frappe
+    clearTimeout(window.searchTimeout);
+    window.searchTimeout = setTimeout(() => {
+        const url = new URL(window.location);
+        url.searchParams.set('tab', 'messagerie');
+        if (terme.trim()) {
+            url.searchParams.set('search', terme);
+        } else {
+            url.searchParams.delete('search');
+        }
+        url.searchParams.delete('p'); // Réinitialiser la page à 1 lors de la recherche
+        window.location.href = url.toString();
+    }, 500);
+}
+
+function filtrerRapports(filtre) {
+    const url = new URL(window.location);
+    url.searchParams.set('tab', 'rapports');
+    url.searchParams.set('filter', filtre);
+    url.searchParams.delete('search'); // Réinitialiser la recherche
+    url.searchParams.delete('p_rpt');   // Réinitialiser la page des rapports
+    window.location.href = url.toString();
+}
+
+function rechercherRapports(terme) {
+    clearTimeout(window.searchTimeout);
+    window.searchTimeout = setTimeout(() => {
+        const url = new URL(window.location);
+        url.searchParams.set('tab', 'rapports');
+        if (terme.trim()) {
+            url.searchParams.set('search', terme);
+        } else {
+            url.searchParams.delete('search');
+        }
+        url.searchParams.delete('p_rpt'); // Réinitialiser la page des rapports
+        window.location.href = url.toString();
+    }, 500);
+}
+
+function filtrerTaches(filtre) {
+    const url = new URL(window.location);
+    url.searchParams.set('tab', 'taches');
+    url.searchParams.set('filter', filtre);
+    url.searchParams.delete('search');   // Réinitialiser la recherche
+    url.searchParams.delete('p_tache'); // Réinitialiser la page des tâches
+    window.location.href = url.toString();
+}
+
+function rechercherTaches(terme) {
+    clearTimeout(window.searchTimeout);
+    window.searchTimeout = setTimeout(() => {
+        const url = new URL(window.location);
+        url.searchParams.set('tab', 'taches');
+        if (terme.trim()) {
+            url.searchParams.set('search', terme);
+        } else {
+            url.searchParams.delete('search');
+        }
+        url.searchParams.delete('p_tache'); // Réinitialiser la page des tâches
+        window.location.href = url.toString();
+    }, 500);
+}
+
+
 
 // ===================================================================
 // ==         FONCTION UTILITAIRE CENTRALE POUR LES FORMULAIRES     ==

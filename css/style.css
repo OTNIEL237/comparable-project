@@ -79,7 +79,7 @@
 
         /* --- HEADER --- */
         header {
-            background: var(--light-color);
+            background: rgba(0, 0, 0, 0.1);
             padding: 15px 0;
             position: fixed;
             width: 100%;

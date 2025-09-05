@@ -303,6 +303,11 @@ switch ($onglet_actif) {
             <li class="<?php echo $onglet_actif === 'presences' ? 'active' : ''; ?>">
                 <a href="?tab=presences"><i class="fas fa-calendar-check"></i><span>Ma Présence</span></a>
             </li>
+            <li class="<?php echo $onglet_actif === 'profil' ? 'active' : ''; ?>">
+                <a href="?tab=profil">
+                    <i class="fas fa-user"></i>
+                    <span>Profil</span>
+                </a>
             <li class="<?php echo $onglet_actif === 'evaluation' ? 'active' : ''; ?>">
                 <a href="?tab=evaluation"><i class="fas fa-chart-line"></i><span>Évaluation</span></a>
             </li>
@@ -685,17 +690,7 @@ switch ($onglet_actif) {
                 </div>
             </div>
 
-            <div class="profil-card full-width">
-                <div class="progress-container">
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: 65%;"></div>
-                    </div>
-                    <div class="progress-labels">
-                        <span>Début</span>
-                        <span>65% complété</span>
-                        <span>Fin</span>
-                    </div>
-                </div>
+            
             </div>
         </div>
     </div>
@@ -843,72 +838,7 @@ switch ($onglet_actif) {
             </div>
         </div>
 
-        <!-- Vue de la semaine -->
-        <div class="semaine-view">
-            <div class="semaine-header">
-                <a href="?tab=presences&date=<?php echo $semaine_prec; ?>" class="btn btn-secondary"><i class="fas fa-chevron-left"></i></a>
-                <a href="?tab=presences&date=<?php echo $semaine_suiv; ?>" class="btn btn-secondary"><i class="fas fa-chevron-right"></i></a>
-                <h2>Semaine du <?php echo date('d/m/Y', strtotime($semaine_data[0]['date'])); ?></h2>
-                
-            </div>
 
-            <div class="semaine-grid">
-                    <?php if (!empty($semaine_data)): ?>
-                        <?php foreach ($semaine_data as $jour): ?>
-                            <div class="jour-card status-<?php echo $jour['statut']; ?>">
-                                <div class="jour-header">
-                                    <h3><?php echo $jour['nom_jour']; ?></h3>
-                                    <span><?php echo date('d/m', strtotime($jour['date'])); ?></span>
-                                </div>
-                                <div class="jour-body">
-                                    <div class="jour-status-icon">
-                                        <?php 
-                                            switch($jour['statut']) {
-                                                case 'present': echo '<i class="fas fa-check-circle"></i>'; break;
-                                                case 'retard': echo '<i class="fas fa-clock"></i>'; break;
-                                                case 'absent': echo '<i class="fas fa-times-circle"></i>'; break;
-                                                default: echo '<i class="fas fa-calendar-day"></i>'; break;
-                                            }
-                                        ?>
-                                    </div>
-                                    <div class="jour-status-text">
-                                        <?php echo ucfirst(str_replace('_', ' de ', $jour['statut'])); ?>
-                                    </div>
-                                    <?php if ($jour['details']): ?>
-                                        <div class="jour-details">
-                                            <div class="detail-item">
-                                                <i class="fas fa-sign-in-alt"></i>
-                                                <span><?php echo $jour['details']['arrivee']; ?></span>
-                                            </div>
-                                            <div class="detail-item">
-                                                <i class="fas fa-sign-out-alt"></i>
-                                                <span><?php echo $jour['details']['depart'] ?? '-'; ?></span>
-                                            </div>
-                                            
-                                            <!-- NOUVELLE VERSION POUR AFFICHER LA LOCALISATION EN TEXTE -->
-                                            <?php if (!empty($jour['details']['localisation'])): ?>
-                                            <div class="detail-item">
-                                                <i class="fas fa-map-marker-alt"></i>
-                                                <span title="<?php echo htmlspecialchars($jour['details']['localisation']); ?>">
-                                                    <?php echo htmlspecialchars($jour['details']['localisation']); ?>
-                                                </span>
-                                            </div>
-                                            <?php endif; ?>
-                                        </div>
-                                        
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-             <a href="?tab=presences" class="btn btn-primary" style="margin-top: 1rem;">Semaine actuelle</a>
-        </div>
-    </div>
-
-
-
-  
 
 
 <?php elseif ($onglet_actif === 'evaluation'): ?>
